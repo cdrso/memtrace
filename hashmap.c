@@ -75,6 +75,9 @@ size_t hash_fnv1(size_t address) {
 #define DOUBLE_HASH(address, prime, i, capacity) \
     (hash_fnv1(address) + i * (prime - (address % prime))) % capacity
 
+#define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
+#define GET_HT_SHMID atoi(getenv("HT_SHMID"))
+
 bool ht_create(hashTable* ht, hashTableEntry* entries) {
     if (!ht || !entries) { return false; }
 
@@ -96,8 +99,20 @@ void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
 
     shmdt(ht->entries);
+    int dbg = GET_ENTRIES_SHMID;
+    if (shmctl(GET_ENTRIES_SHMID, IPC_RMID, NULL) == -1) {
+        perror("shmctl");
+        exit(1);
+    }
 
     shmdt(ht);
+    /*
+    int dbg_ = GET_HT_SHMID;
+    if (shmctl(GET_HT_SHMID, IPC_RMID, NULL) == -1) {
+        perror("shmctl");
+        exit(1);
+    }
+    */
 }
 
 bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
@@ -188,7 +203,6 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     return &ht->entries[index].value;
 }
 
-#define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 bool ht_size_up(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_NEXT_CAPACITY(ht);
@@ -200,7 +214,6 @@ bool ht_size_up(hashTable* ht) {
     /* same parameters as parent process gives same id */
     key_t shkey_realloc_entries = ftok("/tmp", 'B');
 
-    int dgb = GET_ENTRIES_SHMID;
     shmdt(ht->entries);
     int dbg = GET_ENTRIES_SHMID;
     if (shmctl(GET_ENTRIES_SHMID, IPC_RMID, NULL) == -1) {
@@ -218,6 +231,9 @@ bool ht_size_up(hashTable* ht) {
     setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
 
     ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
+    for (int i = 0; i < new_capacity; i++) {
+        ht->entries[i] = clear_entry;
+    }
 
     int32_t new_hash_prime = HT_GET_NEXT_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
@@ -266,6 +282,9 @@ bool ht_size_down(hashTable* ht) {
     setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
 
     ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
+    for (int i = 0; i < new_capacity; i++) {
+        ht->entries[i] = clear_entry;
+    }
 
     int32_t new_hash_prime = HT_GET_PREV_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
