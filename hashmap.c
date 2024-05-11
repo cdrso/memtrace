@@ -1,9 +1,14 @@
+#define _GNU_SOURCE
 #include "hashmap.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/mman.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <fcntl.h>
 
 //debug
 #include <stdio.h>
@@ -39,20 +44,13 @@ const static uint32_t primes[] = {
 #define HT_GET_PREV_HASH_PRIME(ht) \
     primes[ht->capacity_index-2-1]
 
-typedef struct hashTableEntry {
-    size_t key;
-    allocInfo value;
-} hashTableEntry;
-
-/**
- * The hashtable capacity is not stored direcly,
- * instead it can be retrieved with the HT_GET_CAPACITY macro
- */
-typedef struct hashTable {
-    hashTableEntry** entries;
-    int32_t capacity_index;
-    int32_t length;
-} hashTable;
+hashTableEntry clear_entry = {
+    .key = 0,
+    .value = {
+        .block_size = 0,
+        .stack_trace = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+    }
+};
 
 bool ht_size_up(hashTable* ht);
 bool ht_size_down(hashTable* ht);
@@ -77,36 +75,36 @@ size_t hash_fnv1(size_t address) {
 #define DOUBLE_HASH(address, prime, i, capacity) \
     (hash_fnv1(address) + i * (prime - (address % prime))) % capacity
 
-hashTable* ht_create(void) {
-    hashTable* ht = malloc(sizeof(hashTable));
-    if (!ht) { return NULL; }
+bool ht_create(hashTable* ht, hashTableEntry* entries) {
+    if (!ht || !entries) { return false; }
 
     ht->capacity_index = INITIAL_CAPACITY_INDEX;
     uint32_t capacity = HT_GET_CAPACITY(ht);
 
-    ht->entries = calloc(capacity, sizeof(hashTableEntry*));
-    if (!ht->entries) { return NULL; }
+    ht->entries = entries;
+
+    for (int i = 0; i < capacity; i++) {
+        ht->entries[i] = clear_entry;
+    }
 
     ht->length = 0;
 
-    return ht;
+    return true;
 }
 
 void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
 
-    uint32_t capacity = HT_GET_CAPACITY(ht);
+    shmdt(ht->entries);
 
-    for (int i = 0; i < capacity; i++) {
-        free(ht->entries[i]);
-    }
-
-    free(ht->entries);
-    free(ht);
+    shmdt(ht);
 }
 
 bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
-    if (!ht) { return false; }
+    if (!ht) {
+        printf("ht input is NULL\n");
+        return false;
+    }
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -116,14 +114,12 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         i++;
-    } while (ht->entries[index]);
+    } while (ht->entries[index].key);
 
-    hashTableEntry* entry = malloc(sizeof(hashTableEntry));
-    if (!entry) { return false; }
-
-    entry->key = key;
-    entry->value = value;
-
+    hashTableEntry entry = {
+        .key = key,
+        .value = value
+    };
     ht->entries[index] = entry;
 
     ht->length++;
@@ -132,13 +128,14 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
         ht_size_up(ht);
     } else { return false; }
 
-    printf("insert");
-
     return true;
 }
 
 bool ht_delete(hashTable* ht, const size_t key) {
-    if (!ht) { return false; }
+    if (!ht) {
+        printf("ht input is NULL\n");
+        return false;
+    }
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -151,23 +148,20 @@ bool ht_delete(hashTable* ht, const size_t key) {
     int found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
-        if (ht->entries[index]) {
-            found_key = ht->entries[index]->key;
+        if (ht->entries[index].key) {
+            found_key = ht->entries[index].key;
         }
-        i++;
         if ((i > 0) && (index == start_index)) { return false; }
+        i++;
     } while (found_key != key);
 
-    free(ht->entries[index]);
-    ht->entries[index] = NULL;
+    ht->entries[index] = clear_entry;
 
     ht->length--;
 
     if (((float)ht->length / capacity) <= RESIZE_DOWN_FACTOR && (ht->capacity_index > INITIAL_CAPACITY_INDEX)) {
         ht_size_down(ht);
     }
-
-    printf("delete");
 
     return true;
 }
@@ -184,42 +178,64 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     int found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
-        if (ht->entries[index]) {
-            found_key = ht->entries[index]->key;
+        if (ht->entries[index].key) {
+            found_key = ht->entries[index].key;
         }
+        if ((i > 0) && (index == start_index)) { return NULL; }
         i++;
-        if ((i > 0) && (index == start_index)) { return false; }
     } while (found_key != key);
 
-    return &ht->entries[index]->value;
+    return &ht->entries[index].value;
 }
 
+#define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 bool ht_size_up(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_NEXT_CAPACITY(ht);
 
-    hashTableEntry** updated_entries  = calloc(new_capacity, sizeof(hashTableEntry*));
-    if (!updated_entries) { return false; }
+    hashTableEntry* tmp = calloc(current_capacity, sizeof(hashTableEntry));
+    memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
+
+
+    /* same parameters as parent process gives same id */
+    key_t shkey_realloc_entries = ftok("/tmp", 'B');
+
+    int dgb = GET_ENTRIES_SHMID;
+    shmdt(ht->entries);
+    int dbg = GET_ENTRIES_SHMID;
+    if (shmctl(GET_ENTRIES_SHMID, IPC_RMID, NULL) == -1) {
+        perror("shmctl");
+        exit(1);
+    }
+
+    int shmid_realloc_entries = shmget(shkey_realloc_entries, sizeof(hashTableEntry) * new_capacity, IPC_CREAT | 0666);
+    if (shmid_realloc_entries < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    char shmid_realloc_entries_str[256];
+    sprintf(shmid_realloc_entries_str, "%d", shmid_realloc_entries);
+    setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
+
+    ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
 
     int32_t new_hash_prime = HT_GET_NEXT_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
-        hashTableEntry* entry = ht->entries[i];
-        if (entry) {
+        hashTableEntry entry = tmp[i];
+        if (entry.key) {
             int j = 0;
             int new_index;
             do {
-                new_index = DOUBLE_HASH(entry->key, new_hash_prime, j, new_capacity);
+                new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
-            } while (updated_entries[new_index]);
+            } while (ht->entries[new_index].key);
 
-            updated_entries[new_index] = entry;
+            ht->entries[new_index] = entry;
         }
     }
-
-    free(ht->entries);
+    free(tmp);
 
     ht->capacity_index += 2;
-    ht->entries = updated_entries;
 
     return true;
 };
@@ -228,28 +244,46 @@ bool ht_size_down(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_PREV_CAPACITY(ht);
 
-    hashTableEntry** updated_entries  = calloc(new_capacity, sizeof(hashTableEntry*));
-    if (!updated_entries) { return false; }
+    hashTableEntry* tmp = calloc(current_capacity, sizeof(hashTableEntry));
+    memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
+
+    key_t shkey_realloc_entries = ftok("/tmp", 'B');
+
+    shmdt(ht->entries);
+    int dbg = GET_ENTRIES_SHMID;
+    if (shmctl(GET_ENTRIES_SHMID, IPC_RMID, NULL) == -1) {
+        perror("shmctl");
+        exit(1);
+    }
+
+    int shmid_realloc_entries = shmget(shkey_realloc_entries, sizeof(hashTableEntry) * new_capacity, IPC_CREAT | 0666);
+     if (shmid_realloc_entries < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    char shmid_realloc_entries_str[256];
+    sprintf(shmid_realloc_entries_str, "%d", shmid_realloc_entries);
+    setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
+
+    ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
 
     int32_t new_hash_prime = HT_GET_PREV_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
-        hashTableEntry* entry = ht->entries[i];
-        if (entry) {
+        hashTableEntry entry = tmp[i];
+        if (entry.key) {
             int j = 0;
             int new_index;
             do {
-                new_index = DOUBLE_HASH(entry->key, new_hash_prime, j, new_capacity);
+                new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
-            } while (updated_entries[new_index]);
+            } while (ht->entries[new_index].key);
 
-            updated_entries[new_index] = entry;
+            ht->entries[new_index] = entry;
         }
     }
-
-    free(ht->entries);
+    free(tmp);
 
     ht->capacity_index -= 2;
-    ht->entries = updated_entries;
 
     return true;
 };
@@ -266,9 +300,9 @@ void ht_print_debug(hashTable* ht) {
 
     printf("Hash table entries:\n");
     for (int i = 0; i < HT_GET_CAPACITY(ht); i++) {
-        hashTableEntry* entry = ht->entries[i];
-        if (entry) {
-            printf("[%d] Key:%-10zu -  Block Size: %-10u\n", i, entry->key, entry->value.block_size);
+        hashTableEntry entry = ht->entries[i];
+        if (entry.key) {
+            printf("[%d] Key: 0x%-10zx -  Block Size: %-10u\n", i, entry.key, entry.value.block_size);
             // Add code to print stack trace if needed
         } else {
             printf("[%d] (Empty)\n", i);

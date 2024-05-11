@@ -14,10 +14,25 @@ typedef struct allocInfo {
     void* stack_trace[10];
 } allocInfo;
 
-typedef struct hashTable hashTable;
+typedef struct hashTableEntry hashTableEntry;
+
+/**
+ * The hashtable capacity is not stored direcly,
+ * instead it can be retrieved with the HT_GET_CAPACITY macro
+ */
+typedef struct hashTable {
+    hashTableEntry* entries;
+    int32_t capacity_index;
+    int32_t length;
+} hashTable;
+
+typedef struct hashTableEntry {
+    size_t key;
+    allocInfo value;
+} hashTableEntry;
 
 // Creates a hashtable and returns a pointer
-hashTable* ht_create(void);
+bool ht_create(hashTable* ht, hashTableEntry* entries);
 
 // Destroys a hashtable, no return
 void ht_destroy(hashTable* ht);
