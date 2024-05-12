@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "hashmap.h"
+#include <pthread.h>
 
 static void*(*glibc_malloc)(size_t size);
 static void*(*glibc_calloc)(size_t num_elements, size_t element_size);
@@ -20,6 +21,7 @@ static char first_realloc_intercept = 1;
 
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 #define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
+#define GET_MUTEX_SHMID atoi(getenv("HT_MUTEX_SHMID"))
 
 void* malloc(size_t size) {
     if (first_malloc_intercept) {
@@ -36,14 +38,27 @@ void* malloc(size_t size) {
 
         int ht_shmid = GET_HT_SHMID;
         int entries_shmid = GET_ENTRIES_SHMID;
+        int mutex_shmid = GET_MUTEX_SHMID;
 
         hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
         if (ht == (void*)-1) {
             perror("shmat");
             exit(1);
         }
+
         hashTableEntry* process_entries = (hashTableEntry*)shmat(entries_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
         ht->entries = process_entries;
+
+        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(mutex_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->mutex = process_mutex;
 
         allocInfo trace = {
             .block_size = size,
@@ -54,7 +69,7 @@ void* malloc(size_t size) {
 
         ht_insert(ht, (size_t)ptr, trace);
 
-        ht_print_debug(ht);
+        first_malloc_intercept = 1;
 
         return ptr;
     }
@@ -78,14 +93,27 @@ void* calloc(size_t num_elements, size_t element_size) {
 
         int ht_shmid = GET_HT_SHMID;
         int entries_shmid = GET_ENTRIES_SHMID;
+        int mutex_shmid = GET_MUTEX_SHMID;
 
         hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
         if (ht == (void*)-1) {
             perror("shmat");
             exit(1);
         }
+
         hashTableEntry* process_entries = (hashTableEntry*)shmat(entries_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
         ht->entries = process_entries;
+
+        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(mutex_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->mutex = process_mutex;
 
         allocInfo trace = {
             .block_size = num_elements * element_size,
@@ -94,6 +122,8 @@ void* calloc(size_t num_elements, size_t element_size) {
 
         printf("calloc(%zu, %zu) = %p\n", num_elements, element_size, ptr);
         ht_insert(ht, (size_t)ptr, trace);
+
+        first_calloc_intercept = 1;
 
         return ptr;
     }
@@ -117,14 +147,27 @@ void* realloc(void* ptr, size_t new_size) {
 
         int ht_shmid = GET_HT_SHMID;
         int entries_shmid = GET_ENTRIES_SHMID;
+        int mutex_shmid = GET_MUTEX_SHMID;
 
         hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
         if (ht == (void*)-1) {
             perror("shmat");
             exit(1);
         }
+
         hashTableEntry* process_entries = (hashTableEntry*)shmat(entries_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
         ht->entries = process_entries;
+
+        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(mutex_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->mutex = process_mutex;
 
         allocInfo trace = {
             .block_size = new_size,
@@ -134,6 +177,8 @@ void* realloc(void* ptr, size_t new_size) {
         printf("realloc(%p, %zu) = %p\n", ptr, new_size, new_ptr);
         ht_delete(ht, (size_t)ptr);
         ht_insert(ht, (size_t)new_ptr, trace);
+
+        first_realloc_intercept = 1;
 
         return new_ptr;
     }
@@ -158,17 +203,32 @@ void free(void* ptr) {
 
         int ht_shmid = GET_HT_SHMID;
         int entries_shmid = GET_ENTRIES_SHMID;
+        int mutex_shmid = GET_MUTEX_SHMID;
 
         hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
         if (ht == (void*)-1) {
             perror("shmat");
             exit(1);
         }
+
         hashTableEntry* process_entries = (hashTableEntry*)shmat(entries_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
         ht->entries = process_entries;
+
+        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(mutex_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->mutex = process_mutex;
 
         printf("free(%p)\n", ptr);
         ht_delete(ht, (size_t)ptr);
+
+        first_free_intercept = 1;
     }
 
     glibc_free(ptr);

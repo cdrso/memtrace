@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 /**
  * dynamic resizing
@@ -24,6 +26,7 @@ typedef struct hashTable {
     hashTableEntry* entries;
     int32_t capacity_index;
     int32_t length;
+    pthread_mutex_t* mutex;
 } hashTable;
 
 typedef struct hashTableEntry {
@@ -32,7 +35,7 @@ typedef struct hashTableEntry {
 } hashTableEntry;
 
 // Creates a hashtable and returns a pointer
-bool ht_create(hashTable* ht, hashTableEntry* entries);
+hashTable* ht_create();
 
 // Destroys a hashtable, no return
 void ht_destroy(hashTable* ht);

@@ -1,3 +1,4 @@
+#include <pthread.h>
 #define _GNU_SOURCE
 #include "hashmap.h"
 #include <stdint.h>
@@ -9,6 +10,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <fcntl.h>
+#include <semaphore.h>
 
 //debug
 #include <stdio.h>
@@ -44,14 +46,6 @@ const static uint32_t primes[] = {
 #define HT_GET_PREV_HASH_PRIME(ht) \
     primes[ht->capacity_index-2-1]
 
-hashTableEntry clear_entry = {
-    .key = 0,
-    .value = {
-        .block_size = 0,
-        .stack_trace = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-    }
-};
-
 bool ht_size_up(hashTable* ht);
 bool ht_size_down(hashTable* ht);
 size_t hash_fnv1(size_t address);
@@ -77,22 +71,69 @@ size_t hash_fnv1(size_t address) {
 
 #define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
+#define GET_MUTEX_SHMID atoi(getenv("HT_MUTEX_SHMID"))
 
-bool ht_create(hashTable* ht, hashTableEntry* entries) {
-    if (!ht || !entries) { return false; }
+hashTable* ht_create() {
+    key_t shkey_ht = ftok("/tmp", 'A');
+    int shmid_ht = shmget(shkey_ht, sizeof(hashTable), IPC_CREAT | 0666);
+     if (shmid_ht < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    hashTable* ht = (hashTable*)shmat(shmid_ht, NULL, 0);
+    if (ht == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    char shmid_ht_str[256];
+    sprintf(shmid_ht_str, "%d", shmid_ht);
+    setenv("HT_SHMID", shmid_ht_str, 1);
 
+    ht->length = 0;
     ht->capacity_index = INITIAL_CAPACITY_INDEX;
     uint32_t capacity = HT_GET_CAPACITY(ht);
 
-    ht->entries = entries;
+    key_t shkey_entries = ftok("/tmp", 'B');
+    int shmid_entries = shmget(shkey_entries, sizeof(hashTableEntry) * HT_GET_CAPACITY(ht), IPC_CREAT | 0666);
+     if (shmid_entries < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    hashTableEntry* ht_entries = (hashTableEntry*)shmat(shmid_entries, NULL, 0);
+    if (ht_entries == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    char shmid_entries_str[256];
+    sprintf(shmid_entries_str, "%d", shmid_entries);
+    setenv("HT_ENTRIES_SHMID", shmid_entries_str, 1);
 
-    for (int i = 0; i < capacity; i++) {
-        ht->entries[i] = clear_entry;
+    ht->entries = ht_entries;
+
+    key_t shkey_mutex = ftok("/tmp", 'C');
+    int shmid_mutex = shmget(shkey_mutex, sizeof(pthread_mutex_t), IPC_CREAT | 0666);
+     if (shmid_mutex < 0) {
+        perror("shmget");
+        exit(1);
+    }
+    pthread_mutex_t* ht_mutex = (pthread_mutex_t*)shmat(shmid_mutex, NULL, 0);
+    if (ht_mutex == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    char shmid_mutex_str[256];
+    sprintf(shmid_mutex_str, "%d", shmid_mutex);
+    setenv("HT_MUTEX_SHMID", shmid_mutex_str, 1);
+
+    if (pthread_mutex_init(ht_mutex, NULL)!= 0) {
+        perror("Mutex initialization failed");
+        exit(EXIT_FAILURE);
     }
 
-    ht->length = 0;
+    ht->mutex = ht_mutex;
 
-    return true;
+
+    return ht;
 }
 
 void ht_destroy(hashTable* ht) {
@@ -105,14 +146,23 @@ void ht_destroy(hashTable* ht) {
         exit(1);
     }
 
+    if (pthread_mutex_destroy(ht->mutex)!= 0) {
+        perror("Mutex destruction failed");
+        exit(EXIT_FAILURE);
+    }
+    shmdt(ht->mutex);
+    int dbg__ = GET_MUTEX_SHMID;
+    if (shmctl(GET_MUTEX_SHMID, IPC_RMID, NULL) == -1) {
+        perror("shmctl");
+        exit(1);
+    }
+
     shmdt(ht);
-    /*
     int dbg_ = GET_HT_SHMID;
     if (shmctl(GET_HT_SHMID, IPC_RMID, NULL) == -1) {
         perror("shmctl");
         exit(1);
     }
-    */
 }
 
 bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
@@ -120,6 +170,8 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
         printf("ht input is NULL\n");
         return false;
     }
+
+    pthread_mutex_lock(ht->mutex);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -141,7 +193,9 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
 
     if (((float)ht->length / capacity) >= RESIZE_UP_FACTOR && (ht->capacity_index < LAST_CAPACITY_INDEX)) {
         ht_size_up(ht);
-    } else { return false; }
+    }
+
+    pthread_mutex_unlock(ht->mutex);
 
     return true;
 }
@@ -151,6 +205,8 @@ bool ht_delete(hashTable* ht, const size_t key) {
         printf("ht input is NULL\n");
         return false;
     }
+
+    pthread_mutex_lock(ht->mutex);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -166,10 +222,20 @@ bool ht_delete(hashTable* ht, const size_t key) {
         if (ht->entries[index].key) {
             found_key = ht->entries[index].key;
         }
-        if ((i > 0) && (index == start_index)) { return false; }
+        if ((i > 0) && (index == start_index)) {
+            pthread_mutex_unlock(ht->mutex);
+            return false;
+        }
         i++;
     } while (found_key != key);
 
+    hashTableEntry clear_entry = {
+        .key = 0,
+        .value = {
+            .block_size = 0,
+            .stack_trace = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0,}
+        }
+    };
     ht->entries[index] = clear_entry;
 
     ht->length--;
@@ -178,11 +244,15 @@ bool ht_delete(hashTable* ht, const size_t key) {
         ht_size_down(ht);
     }
 
+    pthread_mutex_unlock(ht->mutex);
+
     return true;
 }
 
 allocInfo* ht_get(hashTable* ht, const size_t key) {
     if (!ht) { return NULL; }
+
+    pthread_mutex_lock(ht->mutex);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -196,11 +266,18 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
         if (ht->entries[index].key) {
             found_key = ht->entries[index].key;
         }
-        if ((i > 0) && (index == start_index)) { return NULL; }
+        if ((i > 0) && (index == start_index)) {
+            pthread_mutex_unlock(ht->mutex);
+            return NULL;
+        }
         i++;
     } while (found_key != key);
 
-    return &ht->entries[index].value;
+    allocInfo* ret = &ht->entries[index].value;
+
+    pthread_mutex_unlock(ht->mutex);
+
+    return ret;
 }
 
 bool ht_size_up(hashTable* ht) {
@@ -231,9 +308,6 @@ bool ht_size_up(hashTable* ht) {
     setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
 
     ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
-    for (int i = 0; i < new_capacity; i++) {
-        ht->entries[i] = clear_entry;
-    }
 
     int32_t new_hash_prime = HT_GET_NEXT_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
@@ -282,9 +356,6 @@ bool ht_size_down(hashTable* ht) {
     setenv("HT_ENTRIES_SHMID", shmid_realloc_entries_str, 1);
 
     ht->entries = (hashTableEntry*)shmat(shmid_realloc_entries, NULL, 0);
-    for (int i = 0; i < new_capacity; i++) {
-        ht->entries[i] = clear_entry;
-    }
 
     int32_t new_hash_prime = HT_GET_PREV_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
@@ -314,6 +385,8 @@ void ht_print_debug(hashTable* ht) {
         return;
     }
 
+    pthread_mutex_lock(ht->mutex);
+
     printf("Hash table capacity: %d\n", HT_GET_CAPACITY(ht));
     printf("Hash table length: %d\n", ht->length);
 
@@ -327,4 +400,6 @@ void ht_print_debug(hashTable* ht) {
             printf("[%d] (Empty)\n", i);
         }
     }
+
+    pthread_mutex_unlock(ht->mutex);
 }
