@@ -176,14 +176,12 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
-    /* aquí hay que añadir sobreescribir una entrada */
-
     int i = 0;
-    size_t index;
+    int index;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         i++;
-    } while (ht->entries[index].key && ht->entries[index].key != key);
+    } while (ht->entries[index].key);
 
     hashTableEntry entry = {
         .key = key,
@@ -214,13 +212,11 @@ bool ht_delete(hashTable* ht, const size_t key) {
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
     // Can´t use ht_get because the index is needed to set that entry to NULL
-    /* CUIDADO CON LOS TIPOS AQUÍ */
 
     int i = 0;
-    size_t index;
-    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
-    /* esto funcionaba con -1 a ver ahora */
-    size_t found_key = 0;
+    int index;
+    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    int found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         if (ht->entries[index].key) {
@@ -261,12 +257,10 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
-    /* CUIDADO CON LOS TIPOS AQUÍ */
     int i = 0;
-    size_t index;
-    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
-    /* esto funcionaba con -1 a ver ahora */
-    size_t found_key = 0;
+    int index;
+    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    int found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         if (ht->entries[index].key) {
@@ -320,7 +314,7 @@ bool ht_size_up(hashTable* ht) {
         hashTableEntry entry = tmp[i];
         if (entry.key) {
             int j = 0;
-            size_t new_index;
+            int new_index;
             do {
                 new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
@@ -368,7 +362,7 @@ bool ht_size_down(hashTable* ht) {
         hashTableEntry entry = tmp[i];
         if (entry.key) {
             int j = 0;
-            size_t new_index;
+            int new_index;
             do {
                 new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
