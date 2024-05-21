@@ -10,7 +10,7 @@
 #define HASH_TABLE_ENTRY_SIZE sizeof(hashTableEntry)
 #define HASH_TABLE_INIT_ENTRIES 103
 
-#define N 10000000
+#define N 1000
 
 int main() {
     hashTable* ht = ht_create();
@@ -19,6 +19,7 @@ int main() {
         exit(1);
     }
 
+    /*
     ht_print_debug(ht);
 
     for (size_t i = 1; i <= N; i++) {
@@ -51,7 +52,6 @@ int main() {
 
     ht_print_debug(ht);
 
-    /*
     for (size_t i = 0; i < N/2; i++) {
         size_t key = i;
         if (ht_get(table, key)) {
@@ -60,7 +60,17 @@ int main() {
     }
     */
 
-    ht_destroy(ht);
+    allocInfo first = {
+        .block_size = 1
+    };
+    allocInfo second = {
+        .block_size = 2
+    };
+
+    ht_insert(ht, 1, first);
+    ht_insert(ht, 1, second);
+
+    ht_print_debug(ht);
 
     return 0;
 }

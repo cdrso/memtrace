@@ -23,9 +23,11 @@ typedef struct hashTableEntry hashTableEntry;
  * instead it can be retrieved with the HT_GET_CAPACITY macro
  */
 typedef struct hashTable {
-    hashTableEntry* entries;
     int32_t capacity_index;
     int32_t length;
+    int entries_shmid;
+    hashTableEntry* entries;
+    int mutex_shmid;
     pthread_mutex_t* mutex;
 } hashTable;
 
