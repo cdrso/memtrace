@@ -17,7 +17,7 @@
 
 /**
  * The primes array is used both for both capacity values (odd indexes) and
- * double hashing prime values (even indexes)
+ * double hashing prime values (even indexes & 0)
  */
 const static uint32_t primes[] = {
     101,    103,     199,     211,     419,     421,     829,      839,      1637,
@@ -80,6 +80,22 @@ size_t hash_fnv1(size_t address) {
 #define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 #define GET_MUTEX_SHMID atoi(getenv("HT_MUTEX_SHMID"))
+
+void ht_load_context(hashTable* ht) {
+        hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->entries = process_entries;
+
+        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
+        if (process_entries == (void*)-1) {
+            perror("shmat");
+            exit(1);
+        }
+        ht->mutex = process_mutex;
+}
 
 hashTable* ht_create() {
     key_t shkey_ht = ftok("/tmp", 'A');
@@ -145,6 +161,8 @@ hashTable* ht_create() {
 
 void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
+    //careful, not checking if ht is in use
+    //ht_load_context(ht);
 
     shmdt(ht->entries);
     if (shmctl(ht->entries_shmid, IPC_RMID, NULL) == -1) {
@@ -176,6 +194,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     }
 
     pthread_mutex_lock(ht->mutex);
+    //ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -214,6 +233,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
     }
 
     pthread_mutex_lock(ht->mutex);
+    //ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -223,7 +243,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
     int i = 0;
     int index;
     int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
-    int found_key = -1;
+    size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         if (ht->entries[index].key) {
@@ -260,6 +280,7 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     if (!ht) { return NULL; }
 
     pthread_mutex_lock(ht->mutex);
+    //ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -267,7 +288,7 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     int i = 0;
     int index;
     int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
-    int found_key = -1;
+    size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         if (ht->entries[index].key) {
@@ -287,12 +308,19 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     return ret;
 }
 
+__attribute__((weak)) void* no_override_calloc(size_t num_elements, size_t element_size) { return NULL; }
+__attribute__((weak)) void  no_override_free(void* ptr) { return ; }
+
 //TODO no_override_calloc & no_override_free __attribute((weak))__
 bool ht_size_up(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_NEXT_CAPACITY(ht);
 
+    #ifdef HT_TEST
     hashTableEntry* tmp = calloc(current_capacity, sizeof(hashTableEntry));
+    #else
+    hashTableEntry* tmp = no_override_calloc(current_capacity, sizeof(hashTableEntry));
+    #endif
     memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
 
 
@@ -332,7 +360,11 @@ bool ht_size_up(hashTable* ht) {
             ht->entries[new_index] = entry;
         }
     }
+    #ifdef HT_TEST
     free(tmp);
+    #else
+    no_override_free(tmp);
+    #endif
 
     ht->capacity_index += 2;
 
@@ -343,7 +375,11 @@ bool ht_size_down(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_PREV_CAPACITY(ht);
 
+    #ifdef HT_TEST
     hashTableEntry* tmp = calloc(current_capacity, sizeof(hashTableEntry));
+    #else
+    hashTableEntry* tmp = no_override_calloc(current_capacity, sizeof(hashTableEntry));
+    #endif
     memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
 
     key_t shkey_realloc_entries = ftok("/tmp", 'B');
@@ -381,7 +417,11 @@ bool ht_size_down(hashTable* ht) {
             ht->entries[new_index] = entry;
         }
     }
+    #ifdef HT_TEST
     free(tmp);
+    #else
+    no_override_free(tmp);
+    #endif
 
     ht->capacity_index -= 2;
 
@@ -396,6 +436,7 @@ void ht_print_debug(hashTable* ht) {
     }
 
     pthread_mutex_lock(ht->mutex);
+    //ht_load_context(ht);
 
     printf("Hash table capacity: %d\n", HT_GET_CAPACITY(ht));
     printf("Hash table length: %d\n", ht->length);

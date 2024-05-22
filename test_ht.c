@@ -19,8 +19,6 @@ int main() {
         exit(1);
     }
 
-    /*
-    ht_print_debug(ht);
 
     for (size_t i = 1; i <= N; i++) {
         size_t key = i;
@@ -54,11 +52,10 @@ int main() {
 
     for (size_t i = 0; i < N/2; i++) {
         size_t key = i;
-        if (ht_get(table, key)) {
+        if (ht_get(ht, key)) {
             printf("KEY: %zu NOT_DELETED\n", key);
         }
     }
-    */
 
     allocInfo first = {
         .block_size = 1

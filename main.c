@@ -1,9 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 
 int main(void) {
-    void* ptr = malloc(10);
     void* ptr_2 = malloc(11);
-    free(ptr);
+    free(ptr_2);
 
     return 0;
 }

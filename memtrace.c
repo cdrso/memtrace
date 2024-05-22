@@ -33,8 +33,7 @@ int main(int argc, char* argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0); // Wait for the child process to terminate
-        ht->entries = shmat(atoi(getenv("HT_ENTRIES_SHMID")), NULL, 0);
-        ht->mutex = shmat(atoi(getenv("HT_MUTEX_SHMID")), NULL, 0);
+        ht_load_context(ht);
         if (WIFEXITED(status)) {
             printf("Child process exited with status %d\n", WEXITSTATUS(status));
             ht_print_debug(ht);
