@@ -6,10 +6,6 @@
 #include <sys/wait.h>
 #include "hashmap.h"
 
-#define HASH_TABLE_SIZE sizeof(hashTable)
-#define HASH_TABLE_ENTRY_SIZE sizeof(hashTableEntry)
-#define HASH_TABLE_INIT_ENTRIES 103
-
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <executable>\n", argv[0]);

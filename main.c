@@ -1,39 +1,45 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h> // Include unistd.h for fork()
+#include <stdlib.h>
+#include <pthread.h>
 
-int main(void) {
-    pid_t pid;
+#define NUM_THREADS 4
+#define NUM_ALLOCATIONS 50
+#define MAX_ALLOCATION_SIZE 1024
 
-    // Forking the first time
-    pid = fork();
-    if (pid == -1) { // Error occurred during fork()
-        perror("Error");
-        exit(EXIT_FAILURE);
-    } else if (pid > 0) { // Second parent process
-                          // Fork once more to create the third process
-        pid = fork();
-        if (pid == -1) {
-            perror("Error");
-            exit(EXIT_FAILURE);
+void* thread_function(void* arg) {
+    for (int i = 0; i < NUM_ALLOCATIONS; ++i) {
+        size_t size = (rand() % MAX_ALLOCATION_SIZE) + 1;
+        void* ptr = malloc(size);
+        if (ptr == NULL) {
+            fprintf(stderr, "Failed to allocate memory\n");
+            pthread_exit(NULL);
+        }
+        free(ptr);
+    }
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t threads[NUM_THREADS];
+
+    srand((unsigned int)time(NULL)); // Seed for random numbers
+
+    // Create threads
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        if (pthread_create(&threads[i], NULL, thread_function, NULL) != 0) {
+            fprintf(stderr, "Error creating thread\n");
+            return 1;
         }
     }
 
-    // At this point, we have three processes running:
-    // 1. The original process (if pid == 0)
-    // 2. A child process that was created by the first fork (if pid == 0 after the second fork)
-    // 3. Another child process that was created by the second fork (if pid == 0 after the third fork)
-
-    // Each process now allocates memory and frees it
-    if (pid == 0) { // Child process
-        void* ptr = malloc(10); // Allocate memory
-        if (ptr!= NULL) {
-            free(ptr); // Free the allocated memory
-        } else {
-            perror("Memory allocation failed");
+    // Wait for threads to finish
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            fprintf(stderr, "Error joining thread\n");
+            return 1;
         }
-        exit(EXIT_SUCCESS);
     }
 
     return 0;
 }
+

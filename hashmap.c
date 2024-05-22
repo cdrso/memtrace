@@ -80,19 +80,19 @@ size_t hash_fnv1(size_t address) {
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 
 void ht_load_context(hashTable* ht) {
-        hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
-        if (process_entries == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
-        ht->entries = process_entries;
+    hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
+    if (process_entries == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    ht->entries = process_entries;
 
-        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
-        if (process_entries == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
-        ht->mutex = process_mutex;
+    pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
+    if (process_entries == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    ht->mutex = process_mutex;
 }
 
 hashTable* ht_create() {
@@ -160,6 +160,7 @@ hashTable* ht_create() {
 void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
     //careful, not checking if ht is in use
+    //this looks like a big problem
     //ht_load_context(ht);
 
     shmdt(ht->entries);
@@ -192,6 +193,8 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     }
 
     pthread_mutex_lock(ht->mutex);
+    //cant load context after mutex lock because then ht->mutex possibly points outside process mem
+    //how to load context safely then?
     //ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
