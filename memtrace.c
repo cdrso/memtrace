@@ -33,16 +33,19 @@ int main(int argc, char* argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0); // Wait for the child process to terminate
-        ht_load_context(ht);
         if (WIFEXITED(status)) {
             printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            ht_load_context(ht);
             ht_print_debug(ht);
         } else if (WIFSIGNALED(status)) {
             printf("Child process terminated due to signal %d\n", WTERMSIG(status));
+            ht_load_context(ht);
             ht_print_debug(ht);
         }
     } else {
         perror("fork");
+        ht_load_context(ht);
+        ht_destroy(ht);
         return 1;
     }
 

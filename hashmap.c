@@ -77,9 +77,7 @@ size_t hash_fnv1(size_t address) {
 #define DOUBLE_HASH(address, prime, i, capacity) \
     (hash_fnv1(address) + i * (prime - (address % prime))) % capacity
 
-#define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
-#define GET_MUTEX_SHMID atoi(getenv("HT_MUTEX_SHMID"))
 
 void ht_load_context(hashTable* ht) {
         hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
@@ -200,7 +198,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
     int i = 0;
-    int index;
+    size_t index;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         i++;
@@ -241,8 +239,8 @@ bool ht_delete(hashTable* ht, const size_t key) {
     // Can´t use ht_get because the index is needed to set that entry to NULL
 
     int i = 0;
-    int index;
-    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    size_t index;
+    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
     size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
@@ -286,8 +284,8 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
     int i = 0;
-    int index;
-    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    size_t index;
+    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
     size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
@@ -311,7 +309,6 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
 __attribute__((weak)) void* no_override_calloc(size_t num_elements, size_t element_size) { return NULL; }
 __attribute__((weak)) void  no_override_free(void* ptr) { return ; }
 
-//TODO no_override_calloc & no_override_free __attribute((weak))__
 bool ht_size_up(hashTable* ht) {
     int32_t current_capacity = HT_GET_CAPACITY(ht);
     int32_t new_capacity =  HT_GET_NEXT_CAPACITY(ht);
@@ -351,7 +348,7 @@ bool ht_size_up(hashTable* ht) {
         hashTableEntry entry = tmp[i];
         if (entry.key) {
             int j = 0;
-            int new_index;
+            size_t new_index;
             do {
                 new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
@@ -408,7 +405,7 @@ bool ht_size_down(hashTable* ht) {
         hashTableEntry entry = tmp[i];
         if (entry.key) {
             int j = 0;
-            int new_index;
+            size_t new_index;
             do {
                 new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
                 j++;
