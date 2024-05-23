@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define NUM_THREADS 4
-#define NUM_ALLOCATIONS 50
+#define NUM_THREADS 2
+#define NUM_ALLOCATIONS 5
 #define MAX_ALLOCATION_SIZE 1024
 
 void* thread_function(void* arg) {

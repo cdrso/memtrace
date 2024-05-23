@@ -25,9 +25,7 @@ typedef struct hashTableEntry hashTableEntry;
 typedef struct hashTable {
     int32_t capacity_index;
     int32_t length;
-    int entries_shmid;
-    hashTableEntry* entries;
-    int mutex_shmid;
+    hashTableEntry** entries;
     pthread_mutex_t* mutex;
 } hashTable;
 
@@ -36,11 +34,10 @@ typedef struct hashTableEntry {
     allocInfo value;
 } hashTableEntry;
 
-// Creates a hashtable and returns a pointer
-hashTable* ht_create();
+extern hashTable* ht;
 
-// Loads shared memory hashtable on current process
-void ht_load_context(hashTable* ht);
+// Creates a hashtable and returns a pointer
+bool ht_create(hashTable** ht);
 
 // Destroys a hashtable, no return
 void ht_destroy(hashTable* ht);
