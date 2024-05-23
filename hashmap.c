@@ -227,7 +227,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
     int i = 0;
-    int index;
+    size_t index;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
         i++;
@@ -267,8 +267,8 @@ bool ht_delete(hashTable* ht, const size_t key) {
     // Can´t use ht_get because the index is needed to set that entry to NULL
 
     int i = 0;
-    int index;
-    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    size_t index;
+    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
     size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);
@@ -311,8 +311,8 @@ allocInfo* ht_get(hashTable* ht, const size_t key) {
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
 
     int i = 0;
-    int index;
-    int start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
+    size_t index;
+    size_t start_index = DOUBLE_HASH(key, hash_prime, 0, capacity);
     size_t found_key = -1;
     do {
         index = DOUBLE_HASH(key, hash_prime, i, capacity);

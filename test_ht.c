@@ -10,7 +10,7 @@
 #define HASH_TABLE_ENTRY_SIZE sizeof(hashTableEntry)
 #define HASH_TABLE_INIT_ENTRIES 103
 
-#define N 1000
+#define N 1
 
 int main() {
     hashTable* ht = ht_create();
