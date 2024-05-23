@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <fcntl.h>
 #include <semaphore.h>
+#include <unistd.h>
 
 //debug
 #include <stdio.h>
@@ -77,24 +78,37 @@ size_t hash_fnv1(size_t address) {
 #define DOUBLE_HASH(address, prime, i, capacity) \
     (hash_fnv1(address) + i * (prime - (address % prime))) % capacity
 
-#define GET_ENTRIES_SHMID atoi(getenv("HT_ENTRIES_SHMID"))
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
-#define GET_MUTEX_SHMID atoi(getenv("HT_MUTEX_SHMID"))
+
+/**
+ * Can't load context without checking the mutex
+ * Can't check mutext without loading the context
+ * what do?
+ */
 
 void ht_load_context(hashTable* ht) {
-        hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
-        if (process_entries == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
-        ht->entries = process_entries;
+    /**
+     * Take mutex without loading the context through shmat
+     * when taken then you can load the context
+     * do not free, leave it to be used and freed by caller function
+     */
 
-        pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
-        if (process_entries == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
-        ht->mutex = process_mutex;
+    pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
+    if (process_mutex == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+    pthread_mutex_lock(process_mutex);
+
+
+    hashTableEntry* process_entries = (hashTableEntry*)shmat(ht->entries_shmid, NULL, 0);
+    if (process_entries == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+
+    ht->entries = process_entries;
+    ht->mutex = process_mutex;
 }
 
 hashTable* ht_create() {
@@ -162,7 +176,21 @@ hashTable* ht_create() {
 void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
     //careful, not checking if ht is in use
-    //ht_load_context(ht);
+
+    /*
+    pthread_mutex_t* process_mutex = (pthread_mutex_t*)shmat(ht->mutex_shmid, NULL, 0);
+    if (process_mutex == (void*)-1) {
+        perror("shmat");
+        exit(1);
+    }
+
+    while (1) {
+        if (pthread_mutex_trylock(process_mutex) != 0) {
+            break;
+        }
+        usleep(10000);
+    }
+    */
 
     shmdt(ht->entries);
     if (shmctl(ht->entries_shmid, IPC_RMID, NULL) == -1) {
@@ -193,8 +221,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
         return false;
     }
 
-    pthread_mutex_lock(ht->mutex);
-    //ht_load_context(ht);
+    ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -232,8 +259,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
         return false;
     }
 
-    pthread_mutex_lock(ht->mutex);
-    //ht_load_context(ht);
+    ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -279,8 +305,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
 allocInfo* ht_get(hashTable* ht, const size_t key) {
     if (!ht) { return NULL; }
 
-    pthread_mutex_lock(ht->mutex);
-    //ht_load_context(ht);
+    ht_load_context(ht);
 
     uint32_t capacity = HT_GET_CAPACITY(ht);
     uint32_t hash_prime = HT_GET_HASH_PRIME(ht);
@@ -435,8 +460,7 @@ void ht_print_debug(hashTable* ht) {
         return;
     }
 
-    pthread_mutex_lock(ht->mutex);
-    //ht_load_context(ht);
+    ht_load_context(ht);
 
     printf("Hash table capacity: %d\n", HT_GET_CAPACITY(ht));
     printf("Hash table length: %d\n", ht->length);

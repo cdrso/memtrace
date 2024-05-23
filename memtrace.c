@@ -6,9 +6,12 @@
 #include <sys/wait.h>
 #include "hashmap.h"
 
-#define HASH_TABLE_SIZE sizeof(hashTable)
-#define HASH_TABLE_ENTRY_SIZE sizeof(hashTableEntry)
-#define HASH_TABLE_INIT_ENTRIES 103
+/**
+ * Need to intercept syscalls direcly
+ * programs may bypass interceptor by calling syscalls
+ * instead of stdlib functions
+ * intercept mmap, brk, munmap (investigate further)
+ */
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -33,7 +36,6 @@ int main(int argc, char* argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0); // Wait for the child process to terminate
-        ht_load_context(ht);
         if (WIFEXITED(status)) {
             printf("Child process exited with status %d\n", WEXITSTATUS(status));
             ht_print_debug(ht);

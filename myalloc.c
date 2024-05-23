@@ -41,7 +41,6 @@ void* malloc(size_t size) {
             perror("shmat");
             exit(1);
         }
-        ht_load_context(ht);
 
         allocInfo trace = {
             .block_size = size,
@@ -81,7 +80,6 @@ void* calloc(size_t num_elements, size_t element_size) {
             perror("shmat");
             exit(1);
         }
-        ht_load_context(ht);
 
         allocInfo trace = {
             .block_size = num_elements * element_size,
@@ -120,7 +118,6 @@ void* realloc(void* ptr, size_t new_size) {
             perror("shmat");
             exit(1);
         }
-        ht_load_context(ht);
 
         allocInfo trace = {
             .block_size = new_size,
@@ -161,7 +158,6 @@ void free(void* ptr) {
             perror("shmat");
             exit(1);
         }
-        ht_load_context(ht);
 
         ht_delete(ht, (size_t)ptr);
         printf("free(%p)\n", ptr);
