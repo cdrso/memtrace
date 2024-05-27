@@ -9,7 +9,7 @@
 #include "shmwrap.h"
 
 /**
- * The primes array is used both for both capacity values (odd indexes) and
+ * The primes array is used both for both hashtable capacity values (odd indexes) and
  * double hashing prime values (even indexes)
  */
 const static uint32_t primes[] = {
@@ -41,19 +41,19 @@ const static hashTableEntry clear_entry = {
 #define HT_GET_PREV_HASH_PRIME(ht) \
     primes[ht->capacity_index-2-1]
 
-#define INITIAL_CAPACITY_INDEX 1
-#define LAST_CAPACITY_INDEX 35
+#define HT_INITIAL_CAPACITY_INDEX 1
+#define HT_LAST_CAPACITY_INDEX 35
 
-#define RESIZE_UP_FACTOR 0.7
-#define RESIZE_DOWN_FACTOR 0.2
+#define SIZE_UP_LOAD_FACTOR 0.7
+#define SIZE_DOWN_LOAD_FACTOR 0.2
 
-#define LOAD_FACTOR(ht) \
+#define HT_LOAD_FACTOR(ht) \
     (float)ht->length / HT_GET_CAPACITY(ht)
 
 /**
- * The shared memory id for the hashtable is stored as an evoiroment variable
+ * The shared memory id for the hashtable is stored as an env variable
  * when the parent process (memtrace) forks to run the child (executable to analyze)
- * the envoiroment variable is cloned to the new process
+ * the env variable is cloned to the new process
  */
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 
@@ -102,7 +102,7 @@ hashTable* ht_create() {
     setenv("HT_SHMID", shmid_ht_str, 1);
 
     ht->length = 0;
-    ht->capacity_index = INITIAL_CAPACITY_INDEX;
+    ht->capacity_index = HT_INITIAL_CAPACITY_INDEX;
 
     const int shmid_ht_mutex = shmalloc(HT_MUTEX_SHM_KEY_GEN, sizeof(pthread_mutex_t));
     if (shmid_ht_mutex < 1) {
@@ -168,7 +168,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     if (ht->entries[index].key != key) { ht->length++; }
     ht->entries[index] = entry;
 
-    if (LOAD_FACTOR(ht) > RESIZE_UP_FACTOR && (ht->capacity_index < LAST_CAPACITY_INDEX)) {
+    if (HT_LOAD_FACTOR(ht) > SIZE_UP_LOAD_FACTOR && (ht->capacity_index < HT_LAST_CAPACITY_INDEX)) {
         if (!ht_size_up(ht)) {
             return false;
         }
@@ -202,7 +202,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
     ht->entries[index] = clear_entry;
     ht->length--;
 
-    if (LOAD_FACTOR(ht) < RESIZE_DOWN_FACTOR && (ht->capacity_index > INITIAL_CAPACITY_INDEX)) {
+    if (HT_LOAD_FACTOR(ht) < SIZE_DOWN_LOAD_FACTOR && (ht->capacity_index > HT_INITIAL_CAPACITY_INDEX)) {
         if (!ht_size_down(ht)) {
             return false;
         }

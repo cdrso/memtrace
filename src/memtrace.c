@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
     if (pid == 0) {
         setenv("LD_PRELOAD", "/usr/local/lib/myalloc.so", 1);
         execvp(argv[1], &argv[1]);
+        //execvp no such file or directory, better error?
         perror("execvp");
         exit(1);
     } else if (pid > 0) {
