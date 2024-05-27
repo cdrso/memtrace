@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define NUM_ALLOCATIONS 6000
+#define NUM_ALLOCATIONS 10000
 #define MAX_ALLOCATION_SIZE 1024
 
 int main(void) {
