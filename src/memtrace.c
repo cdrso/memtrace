@@ -10,17 +10,24 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Looks crooked but prints properly
+    printf("                          _                       \n");
+    printf(" _ __ ___   ___ _ __ ___ | |_ _ __ __ _  ___ ___  \n");
+    printf("| '_ ` _ \\ / _ \\ '_ ` _ \\| __| '__/ _` |/ __/ _ \\ \n");
+    printf("| | | | | |  __/ | | | | | |_| | | (_| | (_|  __/ \n");
+    printf("|_| |_| |_|\\___|_| |_| |_|\\__|_|  \\__,_|\\___\\___| \n\n");
+
     hashTable* ht = ht_create();
 
     if (!ht) {
-        printf("create returned NULL");
+        printf("Could not start hashtable");
         exit(1);
     }
 
     pid_t pid = fork();
 
     if (pid == 0) {
-        setenv("LD_PRELOAD", "./myalloc.so", 1);
+        setenv("LD_PRELOAD", "/usr/local/lib/myalloc.so", 1);
         execvp(argv[1], &argv[1]);
         perror("execvp");
         exit(1);

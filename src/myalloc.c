@@ -2,38 +2,46 @@
 #define _GNU_SOURCE
 #include <execinfo.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <dlfcn.h>
 #include <stdlib.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <pthread.h>
 #include "hashmap.h"
 #include "shmwrap.h"
-#include <pthread.h>
 
-static void*(*glibc_malloc)(size_t size);
-static void*(*glibc_calloc)(size_t num_elements, size_t element_size);
-static void*(*glibc_realloc)(void* ptr, size_t new_size);
-static void*(*glibc_free)(void*);
 
-static char first_malloc_intercept = 1;
-static char first_free_intercept = 1;
-static char first_calloc_intercept = 1;
-static char first_realloc_intercept = 1;
+// Pointers to stdlib functions
+static void* (*libc_malloc)(size_t size);
+static void* (*libc_calloc)(size_t num_elements, size_t element_size);
+static void* (*libc_realloc)(void* ptr, size_t new_size);
+static void  (*libc_free)(void*);
+
+
+// Intercept flags needed to prevent recursive interceptions
+static uint8_t intercept_flags = 0xF;
+#define FIRST_MALLOC_INTERCEPT      0X01 // 0000 0001
+#define FIRST_CALLOC_INTERCEPT      0X02 // 0000 0010
+#define FIRST_REALLOC_INTERCEPT     0X04 // 0000 0100
+#define FIRST_FREE_INTERCEPT        0X08 // 0000 1000
+
 
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 
+
 void* malloc(size_t size) {
-    if (first_malloc_intercept) {
-        glibc_malloc = dlsym(RTLD_NEXT, "malloc");
+    if (intercept_flags & FIRST_MALLOC_INTERCEPT) {
+        libc_malloc = dlsym(RTLD_NEXT, "malloc");
         char* error;
         if ((error = dlerror()) != NULL) {
             fputs(error, stderr);
             exit(1);
         }
 
-        first_malloc_intercept = 0;
+        intercept_flags &= ~FIRST_MALLOC_INTERCEPT;
 
-        void* ptr = glibc_malloc(size);
+        void* ptr = libc_malloc(size);
 
         hashTable* ht = shmload(GET_HT_SHMID);
         allocInfo trace = {
@@ -43,27 +51,27 @@ void* malloc(size_t size) {
 
         ht_insert(ht, (size_t)ptr, trace);
 
-        first_malloc_intercept = 1;
+        intercept_flags |= FIRST_MALLOC_INTERCEPT;
 
         return ptr;
     }
 
-    void* ptr = glibc_malloc(size);
+    void* ptr = libc_malloc(size);
 
     return ptr;
 }
 
 void* calloc(size_t num_elements, size_t element_size) {
-    if (first_calloc_intercept) {
-        glibc_calloc = dlsym(RTLD_NEXT, "calloc");
+    if (intercept_flags & FIRST_CALLOC_INTERCEPT) {
+        libc_calloc = dlsym(RTLD_NEXT, "calloc");
         char* error;
         if ((error = dlerror()) != NULL) {
             fputs(error, stderr);
             exit(1);
         }
 
-        first_calloc_intercept = 0;
-        void* ptr = glibc_calloc(num_elements, element_size);
+        intercept_flags &= ~FIRST_CALLOC_INTERCEPT;
+        void* ptr = libc_calloc(num_elements, element_size);
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
@@ -74,27 +82,27 @@ void* calloc(size_t num_elements, size_t element_size) {
 
         ht_insert(ht, (size_t)ptr, trace);
 
-        first_calloc_intercept = 1;
+        intercept_flags |= FIRST_CALLOC_INTERCEPT;
 
         return ptr;
     }
 
-    void* ptr = glibc_calloc(num_elements, element_size);
+    void* ptr = libc_calloc(num_elements, element_size);
 
     return ptr;
 }
 
 void* realloc(void* ptr, size_t new_size) {
-    if (first_realloc_intercept) {
-        glibc_realloc = dlsym(RTLD_NEXT, "realloc");
+    if (intercept_flags & FIRST_REALLOC_INTERCEPT) {
+        libc_realloc = dlsym(RTLD_NEXT, "realloc");
         char* error;
         if ((error = dlerror()) != NULL) {
             fputs(error, stderr);
             exit(1);
         }
 
-        first_realloc_intercept = 0;
-        void* new_ptr = glibc_realloc(ptr, new_size);
+        intercept_flags &= ~FIRST_REALLOC_INTERCEPT;
+        void* new_ptr = libc_realloc(ptr, new_size);
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
@@ -106,12 +114,12 @@ void* realloc(void* ptr, size_t new_size) {
         ht_delete(ht, (size_t)ptr);
         ht_insert(ht, (size_t)new_ptr, trace);
 
-        first_realloc_intercept = 1;
+        intercept_flags |= FIRST_REALLOC_INTERCEPT;
 
         return new_ptr;
     }
 
-    void* new_ptr = glibc_realloc(ptr, new_size);
+    void* new_ptr = libc_realloc(ptr, new_size);
 
     return new_ptr;
 }
@@ -119,46 +127,46 @@ void* realloc(void* ptr, size_t new_size) {
 void free(void* ptr) {
     if (!ptr) { return; }
 
-    if (first_free_intercept) {
-        glibc_free = dlsym(RTLD_NEXT, "free");
+    if (intercept_flags & FIRST_FREE_INTERCEPT) {
+        libc_free = dlsym(RTLD_NEXT, "free");
         char* error;
         if ((error = dlerror()) != NULL) {
             fputs(error, stderr);
             exit(1);
         }
 
-        first_free_intercept = 0;
+        intercept_flags &= ~FIRST_FREE_INTERCEPT;
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
         ht_delete(ht, (size_t)ptr);
 
-        first_free_intercept = 1;
+        intercept_flags |= FIRST_FREE_INTERCEPT;
     }
 
-    glibc_free(ptr);
+    libc_free(ptr);
 }
 
 void* no_intercept_calloc(size_t num_elements, size_t element_size) {
-    glibc_calloc = dlsym(RTLD_NEXT, "calloc");
+    libc_calloc = dlsym(RTLD_NEXT, "calloc");
     char* error;
     if ((error = dlerror()) != NULL) {
         fputs(error, stderr);
         exit(1);
     }
 
-    void* ptr = glibc_calloc(num_elements, element_size);
+    void* ptr = libc_calloc(num_elements, element_size);
     return ptr;
 }
 
 void  no_intercept_free(void* ptr) {
-    glibc_free = dlsym(RTLD_NEXT, "free");
+    libc_free = dlsym(RTLD_NEXT, "free");
     char* error;
     if ((error = dlerror()) != NULL) {
         fputs(error, stderr);
         exit(1);
     }
-    glibc_free(ptr);
+    libc_free(ptr);
 }
 
 #endif

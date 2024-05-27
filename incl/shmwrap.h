@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include <sys/shm.h>
 
+/**
+ * Wrapper functions for shared memory usage
+ */
+
 // Allocates space on shared memory and returns it's shmid
 int shmalloc(key_t key, size_t size );
 
