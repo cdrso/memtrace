@@ -1,8 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <pthread.h>
 #include <semaphore.h>
 
 /**
@@ -39,9 +36,6 @@ typedef struct hashTableEntry {
 // Creates a hashtable and returns a pointer
 hashTable* ht_create();
 
-// Loads shared memory hashtable on current process
-void ht_load_context(hashTable* ht);
-
 // Destroys a hashtable, no return
 void ht_destroy(hashTable* ht);
 
@@ -52,7 +46,7 @@ bool ht_insert(hashTable* ht, const size_t key, allocInfo value);
 bool ht_delete(hashTable* ht, const size_t key);
 
 // Retrieves allocationInfo from a hashtable, returns a pointer
-allocInfo* ht_get(hashTable* ht, const size_t key);
+const allocInfo* ht_get(hashTable* ht, const size_t key);
 
 // Prints hashtable contents for dbg purposes
 void ht_print_debug(hashTable* ht);

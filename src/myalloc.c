@@ -139,7 +139,7 @@ void free(void* ptr) {
     glibc_free(ptr);
 }
 
-void* no_override_calloc(size_t num_elements, size_t element_size) {
+void* no_intercept_calloc(size_t num_elements, size_t element_size) {
     glibc_calloc = dlsym(RTLD_NEXT, "calloc");
     char* error;
     if ((error = dlerror()) != NULL) {
@@ -151,7 +151,7 @@ void* no_override_calloc(size_t num_elements, size_t element_size) {
     return ptr;
 }
 
-void  no_override_free(void* ptr) {
+void  no_intercept_free(void* ptr) {
     glibc_free = dlsym(RTLD_NEXT, "free");
     char* error;
     if ((error = dlerror()) != NULL) {
