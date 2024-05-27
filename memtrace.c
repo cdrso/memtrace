@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
         int status;
         waitpid(pid, &status, 0); // Wait for the child process to terminate
         if (WIFEXITED(status)) {
-            printf("Child process exited with status %d\n", WEXITSTATUS(status));
+            //printf("Child process exited with status %d\n", WEXITSTATUS(status));
             ht_print_debug(ht);
         } else if (WIFSIGNALED(status)) {
-            printf("Child process terminated due to signal %d\n", WTERMSIG(status));
+            printf("executable process terminated due to signal %d\n", WTERMSIG(status));
             ht_print_debug(ht);
         }
     } else {

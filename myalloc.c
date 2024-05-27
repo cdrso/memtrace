@@ -7,6 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include "hashmap.h"
+#include "shmwrap.h"
 #include <pthread.h>
 
 static void*(*glibc_malloc)(size_t size);
@@ -34,22 +35,13 @@ void* malloc(size_t size) {
 
         void* ptr = glibc_malloc(size);
 
-        int ht_shmid = GET_HT_SHMID;
-
-        hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
-        if (ht == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
-
+        hashTable* ht = shmload(GET_HT_SHMID);
         allocInfo trace = {
             .block_size = size,
         };
         (void)backtrace(trace.stack_trace, 10);
 
         ht_insert(ht, (size_t)ptr, trace);
-
-        printf("malloc(%ld) = %p\n", size, ptr);
 
         first_malloc_intercept = 1;
 
@@ -73,13 +65,7 @@ void* calloc(size_t num_elements, size_t element_size) {
         first_calloc_intercept = 0;
         void* ptr = glibc_calloc(num_elements, element_size);
 
-        int ht_shmid = GET_HT_SHMID;
-
-        hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
-        if (ht == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
+        hashTable* ht = shmload(GET_HT_SHMID);
 
         allocInfo trace = {
             .block_size = num_elements * element_size,
@@ -87,7 +73,6 @@ void* calloc(size_t num_elements, size_t element_size) {
         (void)backtrace(trace.stack_trace, 10);
 
         ht_insert(ht, (size_t)ptr, trace);
-        printf("calloc(%ld, %ld) = %p\n", num_elements, element_size, ptr);
 
         first_calloc_intercept = 1;
 
@@ -111,13 +96,7 @@ void* realloc(void* ptr, size_t new_size) {
         first_realloc_intercept = 0;
         void* new_ptr = glibc_realloc(ptr, new_size);
 
-        int ht_shmid = GET_HT_SHMID;
-
-        hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
-        if (ht == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
+        hashTable* ht = shmload(GET_HT_SHMID);
 
         allocInfo trace = {
             .block_size = new_size,
@@ -126,7 +105,6 @@ void* realloc(void* ptr, size_t new_size) {
 
         ht_delete(ht, (size_t)ptr);
         ht_insert(ht, (size_t)new_ptr, trace);
-        printf("realloc(%p, %ld) = %p\n", ptr, new_size, new_ptr);
 
         first_realloc_intercept = 1;
 
@@ -151,16 +129,9 @@ void free(void* ptr) {
 
         first_free_intercept = 0;
 
-        int ht_shmid = GET_HT_SHMID;
-
-        hashTable* ht = (hashTable*)shmat(ht_shmid, NULL, 0);
-        if (ht == (void*)-1) {
-            perror("shmat");
-            exit(1);
-        }
+        hashTable* ht = shmload(GET_HT_SHMID);
 
         ht_delete(ht, (size_t)ptr);
-        printf("free(%p)\n", ptr);
 
         first_free_intercept = 1;
     }
