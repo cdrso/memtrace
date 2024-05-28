@@ -13,16 +13,16 @@ DESTDIR =
 
 all: $(BUILDDIR)/myalloc.so $(BUILDDIR)/memtrace $(BUILDDIR)/main $(BUILDDIR)/ht_test
 
-$(BUILDDIR)/myalloc.so: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashmap.c $(SRCDIR)/memtrace.c $(SRCDIR)/myalloc.c
+$(BUILDDIR)/myalloc.so: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashtable.c $(SRCDIR)/memtrace.c $(SRCDIR)/myalloc.c
 	gcc -DRUNTIME -shared -fpic -o $@ $^ $(LDLFLAGS) $(CFLAGS)
 
-$(BUILDDIR)/memtrace: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashmap.c $(SRCDIR)/memtrace.c
+$(BUILDDIR)/memtrace: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashtable.c $(SRCDIR)/memtrace.c
 	gcc $(CFLAGS) -o $@ $^ $(LDLFLAGS)
 
 $(BUILDDIR)/main: $(SRCDIR)/main.c
 	gcc $(CFLAGS) -o $@ $^
 
-$(BUILDDIR)/ht_test: $(SRCDIR)/shmwrap.c $(SRCDIR)/ht_test.c $(SRCDIR)/hashmap.c
+$(BUILDDIR)/ht_test: $(SRCDIR)/shmwrap.c $(SRCDIR)/ht_test.c $(SRCDIR)/hashtable.c
 	gcc $(CFLAGS) -D HT_TEST -o $@ $^
 
 .PHONY: clean

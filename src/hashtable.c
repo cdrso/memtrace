@@ -35,7 +35,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include "hashmap.h"
+#include "hashtable.h"
 #include "shmwrap.h"
 
 /**

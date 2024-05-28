@@ -33,7 +33,7 @@
  */
 
 #include <stdio.h>
-#include "hashmap.h"
+#include "hashtable.h"
 
 #define NUM_ALLOCATIONS 1000
 

@@ -40,7 +40,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <pthread.h>
-#include "hashmap.h"
+#include "hashtable.h"
 #include "shmwrap.h"
 
 
