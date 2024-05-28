@@ -24,7 +24,7 @@
  * implementation in C, featuring dynamic resizing, double hashing for
  * collision resolution, and the FNV-1 hash function. It includes function
  * prototypes for creating, inserting, deleting, retrieving, and debugging
- * hash table operations
+ * hash table operations.
  *
  */
 
