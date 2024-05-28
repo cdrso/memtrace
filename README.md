@@ -1,30 +1,32 @@
-# Memtrace - A Simple Memory Profiler for Linux x86-64
+# Memtrace - An Educational Memory Profiling Tool for Linux x86-64
 
 ## Overview
 
-**Memtrace** is a lightweight memory profiling tool designed for Linux x86-64 platforms. It monitors and traces memory allocations and deallocations in real-time by employing runtime interposition techniques to override the standard C library's dynamic memory functions (`malloc`, `calloc`, `realloc`, `free`). This interception allows **Memtrace** to provide insights into memory usage patterns and potential leaks, primarily focusing on single-threaded applications due to its current implementation limitations.
+**Memtrace** is an educational project aimed at providing a simple yet effective way to monitor and trace memory allocations and deallocations on Linux x86-64 platforms. It employs runtime interposition techniques to override the standard C library's dynamic memory functions (`malloc`, `calloc`, `realloc`, `free`), offering insights into memory usage patterns and potential leaks. However, it is primarily focused on single-threaded applications due to its current implementation limitations.
 
 ### Key Features
 
-- **Real-Time Monitoring**: Offers immediate feedback on memory allocations and deallocations as they occur.
-- **Minimal Overhead**: Introduces minimal performance overhead, making it suitable for development and debugging environments.
-- **Interception of Standard C Library Functions**: Specifically targets the standard C library's memory management functions, providing accurate tracking of memory operations.
+- **Minimal Overhead**: Designed for minimal performance impact, ideal for development and debugging of simple programs.
+- **Interception of Standard C Library Functions**: Accurate tracking of memory operations through standard C library functions.
 
 ## Limitations
 
-- **Single-Threaded Focus**: Mainly supports single-threaded applications. Testing has shown that pthread may use custom memory management functions, potentially leading to false leaks when attempting to profile multi-threaded applications.
-- **Scope Limited to Standard C Library**: Only monitors the standard C library's memory management functions. Custom memory allocators or extensions (e.g., jemalloc, tcmalloc) will not be tracked.
-- **Excludes Statically Linked Executables**: Does not affect statically linked executables or functions provided by the application itself, as these bypass the dynamic linker/loader.
-- **Platform Specificity**: Designed for Linux x86 platforms.
+- **Single-Threaded Focus**: Supports single-threaded applications; testing shows potential for false leaks in multi-threaded scenarios.Probably due to `pthread` internal allocation mechanisms.
+- **Scope Limited to Standard C Library**: Only tracks standard C library's memory management functions; custom allocators and syscalls are not monitored.
+- **Excludes Statically Linked Executables**: Does not affect statically linked executables or application-provided functions.
+- **Platform Specificity**: Tailored for Linux x86 platforms.
 
 ## Getting Started
 
 To use **Memtrace**, follow these steps:
 
-1. Compile your application normally.
-2. Run the shell command **memtrace** ./<executable>
+1. Clone the repository using `git clone https://www.github.com/cdrso/memtrace`.
+2. Install Memtrace by running `sudo make install`.
+3. Run `memtrace <executable>`
 
+For comprehensive memory profiling needs beyond educational purposes, consider using tools like Valgrind.
 
 ## License
 
-**Memtrace** is open-source software licensed under the MIT License. See the LICENSE file for details.
+**Memtrace** is licensed under the GNU General Public License v3.0 (GPLv3). See the LICENSE file for details.
+

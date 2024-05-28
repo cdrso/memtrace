@@ -20,7 +20,7 @@ static void  (*libc_free)(void*);
 
 
 // Intercept flags needed to prevent recursive interceptions
-static uint8_t intercept_flags = 0xF;
+static uint8_t intercept_flags =    0x0F;
 #define FIRST_MALLOC_INTERCEPT      0X01 // 0000 0001
 #define FIRST_CALLOC_INTERCEPT      0X02 // 0000 0010
 #define FIRST_REALLOC_INTERCEPT     0X04 // 0000 0100
@@ -29,6 +29,10 @@ static uint8_t intercept_flags = 0xF;
 
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 
+/**
+ * If ht functions fail then exit(1) and parent process
+ * will call ht_destroy, no need to free resources here
+ */
 
 void* malloc(size_t size) {
     if (intercept_flags & FIRST_MALLOC_INTERCEPT) {
@@ -49,7 +53,11 @@ void* malloc(size_t size) {
         };
         (void)backtrace(trace.stack_trace, 10);
 
-        ht_insert(ht, (size_t)ptr, trace);
+        if (!ht_insert(ht, (size_t)ptr, trace)) {
+            fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
+            fputs("Error at insert\n", stderr);
+            exit(1);
+        }
 
         intercept_flags |= FIRST_MALLOC_INTERCEPT;
 
@@ -80,7 +88,11 @@ void* calloc(size_t num_elements, size_t element_size) {
         };
         (void)backtrace(trace.stack_trace, 10);
 
-        ht_insert(ht, (size_t)ptr, trace);
+        if (!ht_insert(ht, (size_t)ptr, trace)) {
+            fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
+            fputs("Error at insert\n", stderr);
+            exit(1);
+        }
 
         intercept_flags |= FIRST_CALLOC_INTERCEPT;
 
@@ -111,8 +123,10 @@ void* realloc(void* ptr, size_t new_size) {
         };
         (void)backtrace(trace.stack_trace, 10);
 
-        ht_delete(ht, (size_t)ptr);
-        ht_insert(ht, (size_t)new_ptr, trace);
+        if (!ht_delete(ht, (size_t)ptr) || !ht_insert(ht, (size_t)ptr, trace)) {
+            fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
+            exit(1);
+        }
 
         intercept_flags |= FIRST_REALLOC_INTERCEPT;
 
@@ -139,7 +153,11 @@ void free(void* ptr) {
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
-        ht_delete(ht, (size_t)ptr);
+        if (!ht_delete(ht, (size_t)ptr)) {
+            fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
+            fputs("Error at free\n", stderr);
+            exit(1);
+        }
 
         intercept_flags |= FIRST_FREE_INTERCEPT;
     }
@@ -147,7 +165,7 @@ void free(void* ptr) {
     libc_free(ptr);
 }
 
-void* no_intercept_calloc(size_t num_elements, size_t element_size) {
+void* _no_intercept_calloc(size_t num_elements, size_t element_size) {
     libc_calloc = dlsym(RTLD_NEXT, "calloc");
     char* error;
     if ((error = dlerror()) != NULL) {
@@ -159,7 +177,7 @@ void* no_intercept_calloc(size_t num_elements, size_t element_size) {
     return ptr;
 }
 
-void  no_intercept_free(void* ptr) {
+void  _no_intercept_free(void* ptr) {
     libc_free = dlsym(RTLD_NEXT, "free");
     char* error;
     if ((error = dlerror()) != NULL) {
