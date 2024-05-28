@@ -39,6 +39,26 @@
 #include "shmwrap.h"
 
 /**
+ * HashTable data structures.
+ * Capacity is not stored direcly, it can be retrieved with the HT_GET_CAPACITY macro.
+ * Shared memory ids are stored to be able to get correct pointers in any given virtual
+ * address space
+ */
+typedef struct hashTableEntry {
+    size_t key;
+    allocInfo value;
+} hashTableEntry;
+
+struct hashTable {
+    uint32_t capacity_index;
+    uint32_t length;
+    int entries_shmid;
+    hashTableEntry* entries;
+    int mutex_shmid;
+    pthread_mutex_t* mutex;
+};
+
+/**
  * The primes array is used both for both hashtable capacity values (odd indexes) and
  * double hashing prime values (even indexes)
  */

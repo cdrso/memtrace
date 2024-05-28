@@ -22,8 +22,7 @@
  *
  * This header file provides the interface for a custom hash table
  * implementation in C, featuring dynamic resizing, double hashing for
- * collision resolution, and the FNV-1 hash function. It includes structures
- * for hash table entries and allocation information, alongside function
+ * collision resolution, and the FNV-1 hash function. It includes function
  * prototypes for creating, inserting, deleting, retrieving, and debugging
  * hash table operations
  *
@@ -33,38 +32,15 @@
 #define HASHMAP_H
 
 #include <stdbool.h>
-#include <stdint.h>
 #include <semaphore.h>
-
-/**
- * dynamic resizing
- * double hashing
- * fnv-1
- */
+#include <stdint.h>
 
 typedef struct allocInfo {
     uint32_t block_size;
     void* stack_trace[10];
 } allocInfo;
 
-typedef struct hashTableEntry {
-    size_t key;
-    allocInfo value;
-} hashTableEntry;
-
-/**
- * The hashtable capacity is not stored direcly,
- * instead it can be retrieved with the HT_GET_CAPACITY macro
- * this functionality is not public
- */
-typedef struct hashTable {
-    uint32_t capacity_index;
-    uint32_t length;
-    int entries_shmid;
-    hashTableEntry* entries;
-    int mutex_shmid;
-    pthread_mutex_t* mutex;
-} hashTable;
+typedef struct hashTable hashTable;
 
 
 // Creates a hashtable and returns a pointer

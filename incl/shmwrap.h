@@ -31,7 +31,6 @@
 #ifndef SHMWRAP_H
 #define SHMWRAP_H
 
-
 #include <stdbool.h>
 #include <sys/shm.h>
 
@@ -44,6 +43,5 @@ void* shmload(int shmid);
 
 // Frees shared memory (needs to be loaded in current context)
 bool shmfree(void* ptr, int shmid);
-
 
 #endif
