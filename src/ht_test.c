@@ -49,6 +49,7 @@ int main(void) {
 
     for (int i = 1; i < NUM_ALLOCATIONS; i++) {
         if (!ht_insert(ht, i, mock)) {
+            printf("w_pa\n");
         }
     }
     for (int i = 1; i < NUM_ALLOCATIONS/2; i++) {
