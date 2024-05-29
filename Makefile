@@ -28,7 +28,7 @@ $(BUILDDIR)/ht_test: $(SRCDIR)/shmwrap.c $(SRCDIR)/ht_test.c $(SRCDIR)/hashtable
 .PHONY: clean
 
 clean:
-	rm -f $(BUILDDIR)/main $(BUILDDIR)/memtrace $(BUILDDIR)/myalloc.so $(BUILDDIR)/ht_test
+	rm -r $(BUILDDIR)/main $(BUILDDIR)/memtrace $(BUILDDIR)/myalloc.so $(BUILDDIR)/ht_test
 
 install: all
 	install -d $(DESTDIR)$(LIBDIR)
