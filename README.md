@@ -6,7 +6,7 @@
 
 ### Key Features
 
-- **Minimal Overhead**: Designed for minimal performance impact, ideal for development and debugging of simple programs.
+- **Minimal Overhead**: Designed for minimal performance impact on small applications, ideal for development and debugging of simple programs.
 - **Interception of Standard C Library Functions**: Accurate tracking of memory operations through standard C library functions.
 
 ## Limitations
