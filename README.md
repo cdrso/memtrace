@@ -23,6 +23,8 @@ To use **Memtrace**, follow these steps:
 2. Install Memtrace by running `sudo make install`.
 3. Run `memtrace <executable>`
 
+![screenshot](screenshot/screenshot.png)
+
 For professional-grade memory profiling, consider using tools like Valgrind. This software was intended merely as a learning experience.
 
 ## License
