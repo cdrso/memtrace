@@ -308,7 +308,7 @@ const allocInfo* ht_get(hashTable* ht, const size_t key) {
     return ret;
 }
 
-void ht_print_debug(hashTable* ht) {
+void ht_print_debug(hashTable* ht, bool s_flag) {
     if (!ht) {
         printf("Hash table is NULL\n");
         return;
@@ -323,7 +323,15 @@ void ht_print_debug(hashTable* ht) {
         if (entry.key) {
             unallocated_blocks_cnt++;
             unallocated_blocks_bytes += entry.value.block_size;
-            printf("key: %lu, block_size: %d\n", entry.key, entry.value.block_size);
+            //printf("key: %lu, block_size: %d\n", entry.key, entry.value.block_size);
+            if (s_flag) {
+                for (int i = 0; i < 10; i++) {
+                    void* ptr;
+                    if ((ptr = entry.value.stack_trace[i])) {
+                        printf("#%d %p\n", i, ptr);
+                    }
+                }
+            }
         }
     }
 

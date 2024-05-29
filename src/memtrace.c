@@ -36,18 +36,35 @@
 #include <sys/wait.h>
 #include "hashtable.h"
 
+void print_usage(void);
+void print_ascii_art(void);
+
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <executable>\n", argv[0]);
-        return 1;
+    bool h_opt = false;
+    bool s_opt = false;
+    bool invalid_opt = false;
+    char* executable = NULL;
+
+    int opt;
+    while ((opt = getopt(argc, argv, "sh")) != -1) {
+        switch (opt) {
+            case 's':
+                s_opt = true;
+                break;
+            case 'h':
+                h_opt = true;
+                break;
+            default:
+                invalid_opt = true;
+                break;
+        }
     }
 
-    // Looks crooked but prints properly
-    printf("                          _                       \n");
-    printf(" _ __ ___   ___ _ __ ___ | |_ _ __ __ _  ___ ___  \n");
-    printf("| '_ ` _ \\ / _ \\ '_ ` _ \\| __| '__/ _` |/ __/ _ \\ \n");
-    printf("| | | | | |  __/ | | | | | |_| | | (_| | (_|  __/ \n");
-    printf("|_| |_| |_|\\___|_| |_| |_|\\__|_|  \\__,_|\\___\\___| \n\n");
+    if (invalid_opt || h_opt || !(optind < argc)) {
+        print_ascii_art();
+        print_usage();
+        exit(0);
+    }
 
     hashTable* ht = ht_create();
 
@@ -60,26 +77,42 @@ int main(int argc, char* argv[]) {
 
     if (pid == 0) {
         setenv("LD_PRELOAD", "/usr/local/lib/myalloc.so", 1);
-        execvp(argv[1], &argv[1]);
-        //execvp no such file or directory, better error?
+        execvp(argv[optind], &argv[optind]);
         perror("execvp");
         exit(1);
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
         if (WIFEXITED(status)) {
-            ht_print_debug(ht);
+            //ok, do nothing
         } else if (WIFSIGNALED(status)) {
             printf("executable process terminated due to signal %d\n", WTERMSIG(status));
-            ht_print_debug(ht);
         }
     } else {
         perror("fork");
         return 1;
     }
 
+    ht_print_debug(ht, s_opt);
     ht_destroy(ht);
 
     return 0;
+}
+
+void print_ascii_art(void) {
+    // Looks crooked but prints properly
+    printf("                          _                       \n");
+    printf(" _ __ ___   ___ _ __ ___ | |_ _ __ __ _  ___ ___  \n");
+    printf("| '_ ` _ \\ / _ \\ '_ ` _ \\| __| '__/ _` |/ __/ _ \\ \n");
+    printf("| | | | | |  __/ | | | | | |_| | | (_| | (_|  __/ \n");
+    printf("|_| |_| |_|\\___|_| |_| |_|\\__|_|  \\__,_|\\___\\___| \n\n");
+    printf("Copyright (C) 2024 Alejandro Cadarso\n\n");
+}
+
+void print_usage(void) {
+    printf("Usage:\n");
+    printf("memtrace <executable>\n");
+    printf("-s option for detailed leak report including stack traces, you can investigate further ussing addr2line on these adresses.\n");
+    printf("-h option to print this message\n");
 }
 

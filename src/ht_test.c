@@ -83,7 +83,7 @@ int main(void) {
     ht_insert(ht, 33, mock);
 
 
-    ht_print_debug(ht);
+    ht_print_debug(ht, false);
     ht_destroy(ht);
 
     return 0;

@@ -59,6 +59,6 @@ bool ht_delete(hashTable* ht, const size_t key);
 const allocInfo* ht_get(hashTable* ht, const size_t key);
 
 // Prints hashtable contents for dbg purposes
-void ht_print_debug(hashTable* ht);
+void ht_print_debug(hashTable* ht, bool s_flag);
 
 #endif
