@@ -17,7 +17,7 @@ $(BUILDDIR)/myalloc.so: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashtable.c $(SRCDIR)/memt
 	gcc -DRUNTIME -shared -fpic -o $@ $^ $(LDLFLAGS) $(CFLAGS)
 
 $(BUILDDIR)/memtrace: $(SRCDIR)/shmwrap.c $(SRCDIR)/hashtable.c $(SRCDIR)/memtrace.c
-	gcc $(CFLAGS) -o $@ $^ $(LDLFLAGS)
+	gcc $(CFLAGS) -pg -o $@ $^ $(LDLFLAGS)
 
 $(BUILDDIR)/main: $(SRCDIR)/main.c
 	gcc $(CFLAGS) -o $@ $^

@@ -31,13 +31,17 @@
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
+// Max sizes for storing backtrace symbols
+#define MAX_STRINGS 10
+#define MAX_CHAR 256
+
 #include <stdbool.h>
 #include <semaphore.h>
 #include <stdint.h>
 
 typedef struct allocInfo {
     uint32_t block_size;
-    void* stack_trace[10];
+    char stack_trace[MAX_STRINGS][MAX_CHAR];
 } allocInfo;
 
 typedef struct hashTable hashTable;

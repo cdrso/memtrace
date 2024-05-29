@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <semaphore.h>
 #include "hashtable.h"
 #include "shmwrap.h"
@@ -52,6 +53,7 @@ typedef struct hashTableEntry {
 struct hashTable {
     uint32_t capacity_index;
     uint32_t length;
+    pid_t context;
     int entries_shmid;
     hashTableEntry* entries;
     int mutex_shmid;
@@ -190,6 +192,8 @@ hashTable* ht_create() {
     ht->mutex_shmid = shmid_ht_mutex;
     ht->mutex = ht_mutex;
 
+    ht->context = getpid();
+
     return ht;
 }
 
@@ -315,30 +319,34 @@ void ht_print_debug(hashTable* ht, bool s_flag) {
     }
     _ht_load_context(ht);
 
-    uint16_t unallocated_blocks_cnt = 0;
-    uint16_t unallocated_blocks_bytes = 0;
+    uint32_t unallocated_blocks_cnt = 0;
+    uint32_t unallocated_blocks_bytes = 0;
 
     for (int i = 0; i < HT_GET_CAPACITY(ht); i++) {
         hashTableEntry entry = ht->entries[i];
         if (entry.key) {
             unallocated_blocks_cnt++;
             unallocated_blocks_bytes += entry.value.block_size;
-            //printf("key: %lu, block_size: %d\n", entry.key, entry.value.block_size);
             if (s_flag) {
-                for (int i = 0; i < 10; i++) {
-                    void* ptr;
-                    if ((ptr = entry.value.stack_trace[i])) {
-                        printf("#%d %p\n", i, ptr);
+                printf("\nLeaked Block Size: %d bytes\n", entry.value.block_size);
+                printf("Leaked Block Stack Trace:\n\n");
+                for (int i = 1; i < MAX_STRINGS; i++) {
+                    if (*entry.value.stack_trace[i] != '\0') {
+                        printf("# %s\n", entry.value.stack_trace[i]);
                     }
                 }
+                printf("\nTo track down the leak run:\n");
+                printf("objdump -S <executable> | grep -A 10 -B 10 '<top-base-offset>'\n");
+                printf("addr2line -e <executable> <top-base-offset>\n\n");
+                printf("--------------------------------------------------------------\n");
             }
         }
     }
 
     if (unallocated_blocks_bytes) {
-        printf("%d bytes not freed in %d blocks\n", unallocated_blocks_bytes, unallocated_blocks_cnt);
+        printf("%d bytes not freed in %d blocks\n\n", unallocated_blocks_bytes, unallocated_blocks_cnt);
     } else {
-        printf("No memory leaks\n");
+        printf("\nNo memory leaks\n\n");
     }
 
     pthread_mutex_unlock(ht->mutex);
@@ -395,6 +403,12 @@ static void _ht_load_context(hashTable* ht) {
      * a valid shmid never fails
      */
 
+    pid_t new_context = getpid();
+    if (ht->context == new_context) {
+        pthread_mutex_lock(ht->mutex);
+        return;
+    }
+
     pthread_mutex_t* context_mutex = shmload(ht->mutex_shmid);
     hashTableEntry* context_entries = shmload(ht->entries_shmid);
 
@@ -402,6 +416,8 @@ static void _ht_load_context(hashTable* ht) {
 
     ht->entries = context_entries;
     ht->mutex = context_mutex;
+
+    ht->context = new_context;
 }
 
 

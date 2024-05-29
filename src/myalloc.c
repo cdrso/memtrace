@@ -37,6 +37,7 @@
 #include <stdint.h>
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <pthread.h>
@@ -61,6 +62,11 @@ static uint8_t intercept_flags =    0x0F;
 
 #define GET_HT_SHMID atoi(getenv("HT_SHMID"))
 
+
+#define BT_OFFSET 2
+
+void _add_trace_symbols(allocInfo* trace);
+
 /**
  * If ht functions fail then exit(1) and parent process
  * will call ht_destroy, no need to free resources here
@@ -78,12 +84,15 @@ void* malloc(size_t size) {
         intercept_flags &= ~FIRST_MALLOC_INTERCEPT;
 
         void* ptr = libc_malloc(size);
+        if (!ptr) {
+            return NULL;
+        }
 
         hashTable* ht = shmload(GET_HT_SHMID);
         allocInfo trace = {
             .block_size = size,
         };
-        (void)backtrace(trace.stack_trace, 10);
+        _add_trace_symbols(&trace);
 
         if (!ht_insert(ht, (size_t)ptr, trace)) {
             fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
@@ -112,13 +121,16 @@ void* calloc(size_t num_elements, size_t element_size) {
 
         intercept_flags &= ~FIRST_CALLOC_INTERCEPT;
         void* ptr = libc_calloc(num_elements, element_size);
+        if (!ptr) {
+            return NULL;
+        }
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
         allocInfo trace = {
             .block_size = num_elements * element_size,
         };
-        (void)backtrace(trace.stack_trace, 10);
+        _add_trace_symbols(&trace);
 
         if (!ht_insert(ht, (size_t)ptr, trace)) {
             fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
@@ -147,13 +159,16 @@ void* realloc(void* ptr, size_t new_size) {
 
         intercept_flags &= ~FIRST_REALLOC_INTERCEPT;
         void* new_ptr = libc_realloc(ptr, new_size);
+        if (!new_ptr) {
+            return NULL;
+        }
 
         hashTable* ht = shmload(GET_HT_SHMID);
 
         allocInfo trace = {
             .block_size = new_size,
         };
-        (void)backtrace(trace.stack_trace, 10);
+        _add_trace_symbols(&trace);
 
         if (!ht_delete(ht, (size_t)ptr) || !ht_insert(ht, (size_t)ptr, trace)) {
             fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
@@ -217,6 +232,26 @@ void  _no_intercept_free(void* ptr) {
         exit(1);
     }
     libc_free(ptr);
+}
+
+void _add_trace_symbols(allocInfo* trace) {
+    char tmp_buffer[MAX_CHAR];
+
+    int nptrs;
+    void* buffer[MAX_CHAR];
+    char** strings;
+
+    nptrs = backtrace(buffer, MAX_CHAR);
+
+    strings = backtrace_symbols(buffer, nptrs);
+
+    for (int i = BT_OFFSET; i < nptrs && i < MAX_STRINGS; i++) {
+        strncpy(tmp_buffer, strings[i], MAX_CHAR - 1);
+        tmp_buffer[MAX_CHAR - 1] = '\0';
+        strcpy(trace->stack_trace[i], tmp_buffer);
+    }
+
+    free(strings);
 }
 
 #endif

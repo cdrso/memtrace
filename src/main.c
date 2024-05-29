@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define NUM_ALLOCATIONS 50
+#define NUM_ALLOCATIONS 5000
 #define MAX_ALLOCATION_SIZE 1024
 
 int main(void) {
@@ -44,7 +44,7 @@ int main(void) {
             return -1;
         }
     }
-    for (int i = 0; i < NUM_ALLOCATIONS-1; i++) {
+    for (int i = 0; i < NUM_ALLOCATIONS-2; i++) {
         free(arr[i]);
     }
 

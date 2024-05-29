@@ -45,6 +45,8 @@ int main(int argc, char* argv[]) {
     bool invalid_opt = false;
     char* executable = NULL;
 
+    print_ascii_art();
+
     int opt;
     while ((opt = getopt(argc, argv, "sh")) != -1) {
         switch (opt) {
@@ -61,7 +63,6 @@ int main(int argc, char* argv[]) {
     }
 
     if (invalid_opt || h_opt || !(optind < argc)) {
-        print_ascii_art();
         print_usage();
         exit(0);
     }
@@ -83,8 +84,8 @@ int main(int argc, char* argv[]) {
     } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
-        if (WIFEXITED(status)) {
-            //ok, do nothing
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            ht_print_debug(ht, s_opt);
         } else if (WIFSIGNALED(status)) {
             printf("executable process terminated due to signal %d\n", WTERMSIG(status));
         }
@@ -93,11 +94,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    ht_print_debug(ht, s_opt);
     ht_destroy(ht);
 
     return 0;
 }
+
 
 void print_ascii_art(void) {
     // Looks crooked but prints properly
@@ -110,9 +111,9 @@ void print_ascii_art(void) {
 }
 
 void print_usage(void) {
-    printf("Usage:\n");
-    printf("memtrace <executable>\n");
-    printf("-s option for detailed leak report including stack traces, you can investigate further ussing addr2line on these adresses.\n");
-    printf("-h option to print this message\n");
+    printf("Usage: memtrace <executable> <option(s)>\n");
+    printf("  Find lib C memory leaks in <executable>\n");
+    printf("  -s, Display Stack traces for leaks\n");
+    printf("  -h, Display this information\n");
 }
 
