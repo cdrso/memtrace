@@ -96,7 +96,6 @@ void* malloc(size_t size) {
 
         if (!ht_insert(ht, (size_t)ptr, trace)) {
             fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
-            fputs("Error at insert\n", stderr);
             exit(1);
         }
 
@@ -134,7 +133,6 @@ void* calloc(size_t num_elements, size_t element_size) {
 
         if (!ht_insert(ht, (size_t)ptr, trace)) {
             fputs("Unrecoverable error: HashTable | Shared Memory Failure\n", stderr);
-            fputs("Error at insert\n", stderr);
             exit(1);
         }
 

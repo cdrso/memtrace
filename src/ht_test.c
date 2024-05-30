@@ -71,7 +71,7 @@ int main(void) {
     ht_insert(ht, OVERWRITE_KEY, mock_2);
 
     const allocInfo* overwrite_entry = ht_get(ht, OVERWRITE_KEY);
-    assert( overwrite_entry->block_size == mock_2.block_size);
+    assert(overwrite_entry->block_size == mock_2.block_size);
 
     ht_destroy(ht);
 
