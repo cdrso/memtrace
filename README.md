@@ -25,7 +25,7 @@ To use **Memtrace**, follow these steps:
 
 ![screenshot](screenshot/screenshot.png)
 
-For professional-grade memory profiling, consider using tools like Valgrind. This software was intended merely as a learning experience.
+For professional-grade memory profiling, consider using tools like [Valgrind](https://valgrind.org/). This software was intended merely as a learning experience.
 
 ## License
 
