@@ -378,11 +378,11 @@ void ht_print_debug(hashTable* ht, bool s_flag) {
 
 
 static size_t _hash_fnv1(size_t address) {
-    uint8_t bytes[8];
+    uint8_t bytes[sizeof(address)];
     memcpy(bytes, &address, sizeof(address));
 
     size_t hash = FNV_OFFSET_BASIS;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < sizeof(address); i++) {
         hash *= FNV_PRIME;
         hash ^= bytes[i];
     }

@@ -1,8 +1,8 @@
-# Memtrace - A Simple Memory Profiling Tool for Linux x86-64
+# Memtrace - A Simple Memory Profiling Tool for Linux
 
 ## Overview
 
-**Memtrace** is an educational project aimed at providing a simple yet effective way to monitor and trace memory allocations and deallocations on Linux x86-64 platforms. It employs runtime interposition techniques to override the standard C library's dynamic memory functions (`malloc`, `calloc`, `realloc`, `free`), offering insights into memory usage patterns and potential leaks. However, it is primarily focused on single-threaded applications due to its current implementation limitations.
+**Memtrace** is an educational project aimed at providing a simple yet effective way to monitor and trace memory allocations and deallocations on Linux platforms. It employs runtime interposition techniques to override the standard C library's dynamic memory functions (`malloc`, `calloc`, `realloc`, `free`), offering insights into memory usage patterns and potential leaks. However, it is primarily focused on single-threaded applications due to its current implementation limitations.
 
 ### Key Features
 
