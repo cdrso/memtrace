@@ -32,15 +32,16 @@
  *
  */
 
-#include <stdio.h>
+#include <assert.h>
 #include "hashtable.h"
 
 #define NUM_ALLOCATIONS 1000
+#define OVERWRITE_KEY 33
 
-allocInfo mock = {
+allocInfo mock_1 = {
     .block_size = 1,
 };
-allocInfo mock1 = {
+allocInfo mock_2 = {
     .block_size = 2,
 };
 
@@ -48,39 +49,26 @@ int main(void) {
     hashTable* ht = ht_create();
 
     for (int i = 1; i < NUM_ALLOCATIONS; i++) {
-        if (!ht_insert(ht, i, mock)) {
-            printf("w_pa\n");
-        }
+        assert(!ht_insert(ht, i, mock_1));
     }
     for (int i = 1; i < NUM_ALLOCATIONS/2; i++) {
-        if(!ht_delete(ht, i)) {
-            printf("wepa\n");
-        }
+        assert(!ht_delete(ht, i));
     }
     for (int i = 1; i < NUM_ALLOCATIONS/2; i++) {
-        if(ht_get(ht, i)) {
-            printf("wupa\n");
-        }
+        assert(ht_get(ht, i));
     }
     for (int i = NUM_ALLOCATIONS/2; i < NUM_ALLOCATIONS; i++) {
-        if(!ht_get(ht, i)) {
-            printf("wopa\n");
-        }
+        assert(!ht_get(ht, i));
     }
     for (int i = NUM_ALLOCATIONS/2; i < NUM_ALLOCATIONS; i++) {
-        if(!ht_delete(ht, i)) {
-            printf("wepa\n");
-        }
+        assert(!ht_delete(ht, i));
     }
     for (int i = 1; i < NUM_ALLOCATIONS; i++) {
-        if(ht_get(ht, i)) {
-            printf("wapa\n");
-        }
+        assert(ht_get(ht, i));
     }
 
-    ht_insert(ht, 33, mock);
-    ht_insert(ht, 33, mock1);
-    ht_insert(ht, 33, mock);
+    ht_insert(ht, OVERWRITE_KEY, mock_1);
+    ht_insert(ht, OVERWRITE_KEY, mock_2);
 
 
     ht_print_debug(ht, false);
