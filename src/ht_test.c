@@ -38,10 +38,10 @@
 #define NUM_ALLOCATIONS 1000
 #define OVERWRITE_KEY 33
 
-allocInfo mock_1 = {
+const allocInfo mock_1 = {
     .block_size = 1,
 };
-allocInfo mock_2 = {
+const allocInfo mock_2 = {
     .block_size = 2,
 };
 
@@ -49,29 +49,30 @@ int main(void) {
     hashTable* ht = ht_create();
 
     for (int i = 1; i < NUM_ALLOCATIONS; i++) {
-        assert(!ht_insert(ht, i, mock_1));
+        assert(ht_insert(ht, i, mock_1));
     }
     for (int i = 1; i < NUM_ALLOCATIONS/2; i++) {
-        assert(!ht_delete(ht, i));
+        assert(ht_delete(ht, i));
     }
     for (int i = 1; i < NUM_ALLOCATIONS/2; i++) {
-        assert(ht_get(ht, i));
-    }
-    for (int i = NUM_ALLOCATIONS/2; i < NUM_ALLOCATIONS; i++) {
         assert(!ht_get(ht, i));
     }
     for (int i = NUM_ALLOCATIONS/2; i < NUM_ALLOCATIONS; i++) {
-        assert(!ht_delete(ht, i));
+        assert(ht_get(ht, i));
+    }
+    for (int i = NUM_ALLOCATIONS/2; i < NUM_ALLOCATIONS; i++) {
+        assert(ht_delete(ht, i));
     }
     for (int i = 1; i < NUM_ALLOCATIONS; i++) {
-        assert(ht_get(ht, i));
+        assert(!ht_get(ht, i));
     }
 
     ht_insert(ht, OVERWRITE_KEY, mock_1);
     ht_insert(ht, OVERWRITE_KEY, mock_2);
 
+    const allocInfo* overwrite_entry = ht_get(ht, OVERWRITE_KEY);
+    assert( overwrite_entry->block_size == mock_2.block_size);
 
-    ht_print_debug(ht, false);
     ht_destroy(ht);
 
     return 0;
