@@ -387,11 +387,14 @@ void ht_print_debug(hashTable* ht, bool s_flag) {
 
 
 static size_t _hash_fnv1(size_t address) {
-    uint8_t bytes[sizeof(address)];
-    memcpy(bytes, &address, sizeof(address));
+    // Word size independent
+    int bytes_cnt = sizeof(address);
+
+    uint8_t bytes[bytes_cnt];
+    memcpy(bytes, &address, bytes_cnt);
 
     size_t hash = FNV_OFFSET_BASIS;
-    for (int i = 0; i < sizeof(address); i++) {
+    for (int i = 0; i < bytes_cnt; i++) {
         hash *= FNV_PRIME;
         hash ^= bytes[i];
     }
