@@ -1,4 +1,4 @@
-# Memtrace - A Simple Memory Profiling Tool for Linux
+# Memtrace - A Simple Memory Profiling Tool for Linux Systems
 
 ## Overview
 
