@@ -105,8 +105,12 @@ const static hashTableEntry clear_entry = {
 #define SIZE_UP_LOAD_FACTOR 0.7
 #define SIZE_DOWN_LOAD_FACTOR 0.2
 
+#define RESIZE_UP 1
+#define RESIZE_DOWN 0
+
 #define HT_LOAD_FACTOR(ht) \
     (float)ht->length / HT_GET_CAPACITY(ht)
+
 
 /**
  * The shared memory id for the hashtable is stored as an env variable
@@ -136,14 +140,14 @@ const static hashTableEntry clear_entry = {
  * it's the callers responsibility to unlock it
  */
 static void _ht_load_context(hashTable* ht);
-static bool _ht_size_up(hashTable* ht);
-static bool _ht_size_down(hashTable* ht);
+static bool _ht_resize(hashTable* ht, int resize_direction);
 static size_t _hash_fnv1(size_t address);
 
 
 /************************************************************************************************************
  *                                          PUBLIC FUNCTIONS                                                *
  ***********************************************************************************************************/
+
 
 hashTable* ht_create() {
     const int shmid_ht = shmalloc(HT_SHM_KEY_GEN, sizeof(hashTable));
@@ -197,6 +201,7 @@ hashTable* ht_create() {
     return ht;
 }
 
+
 void ht_destroy(hashTable* ht) {
     if (!ht) { return; }
 
@@ -208,6 +213,7 @@ void ht_destroy(hashTable* ht) {
         fputs("HashTable deallocation failure\n", stderr);
     }
 }
+
 
 bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     if (!ht) { return false; }
@@ -230,7 +236,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
     ht->entries[index] = entry;
 
     if (HT_LOAD_FACTOR(ht) > SIZE_UP_LOAD_FACTOR && (ht->capacity_index < HT_LAST_CAPACITY_INDEX)) {
-        if (!_ht_size_up(ht)) {
+        if (!_ht_resize(ht, RESIZE_UP)) {
             pthread_mutex_unlock(ht->mutex);
             return false;
         }
@@ -240,6 +246,7 @@ bool ht_insert(hashTable* ht, const size_t key, const allocInfo value) {
 
     return true;
 }
+
 
 bool ht_delete(hashTable* ht, const size_t key) {
     if (!ht) { return false; }
@@ -270,7 +277,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
     ht->length--;
 
     if (HT_LOAD_FACTOR(ht) < SIZE_DOWN_LOAD_FACTOR && (ht->capacity_index > HT_INITIAL_CAPACITY_INDEX)) {
-        if (!_ht_size_down(ht)) {
+        if (!_ht_resize(ht, RESIZE_DOWN)) {
             pthread_mutex_unlock(ht->mutex);
             return false;
         }
@@ -280,6 +287,7 @@ bool ht_delete(hashTable* ht, const size_t key) {
 
     return true;
 }
+
 
 const allocInfo* ht_get(hashTable* ht, const size_t key) {
     if (!ht) { return NULL; }
@@ -311,6 +319,7 @@ const allocInfo* ht_get(hashTable* ht, const size_t key) {
 
     return ret;
 }
+
 
 void ht_print_debug(hashTable* ht, bool s_flag) {
     if (!ht) {
@@ -421,9 +430,9 @@ static void _ht_load_context(hashTable* ht) {
 }
 
 
-static bool _ht_size_up(hashTable* ht) {
+static bool _ht_resize(hashTable* ht, int resize_direction) {
     uint32_t current_capacity = HT_GET_CAPACITY(ht);
-    uint32_t new_capacity =  HT_GET_NEXT_CAPACITY(ht);
+    uint32_t new_capacity = resize_direction?  HT_GET_NEXT_CAPACITY(ht) : HT_GET_PREV_CAPACITY(ht);
 
     hashTableEntry* tmp = _no_intercept_calloc(current_capacity, sizeof(hashTableEntry));
     memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
@@ -447,7 +456,7 @@ static bool _ht_size_up(hashTable* ht) {
         ht->entries[i] = clear_entry;
     }
 
-    uint32_t new_hash_prime = HT_GET_NEXT_HASH_PRIME(ht);
+    uint32_t new_hash_prime = resize_direction?  HT_GET_NEXT_HASH_PRIME(ht) : HT_GET_PREV_HASH_PRIME(ht);
     for (int i = 0; i < current_capacity; i++) {
         hashTableEntry entry = tmp[i];
         if (entry.key) {
@@ -463,56 +472,11 @@ static bool _ht_size_up(hashTable* ht) {
     }
     _no_intercept_free(tmp);
 
-    ht->capacity_index += 2;
+    if (resize_direction) {
+        ht->capacity_index += 2;
+    } else {
+        ht->capacity_index -= 2;
+    }
 
     return true;
 };
-
-
-static bool _ht_size_down(hashTable* ht) {
-    uint32_t current_capacity = HT_GET_CAPACITY(ht);
-    uint32_t new_capacity =  HT_GET_PREV_CAPACITY(ht);
-
-    hashTableEntry* tmp = _no_intercept_calloc(current_capacity, sizeof(hashTableEntry));
-    memcpy(tmp, ht->entries, current_capacity * sizeof(hashTableEntry));
-
-    if (!shmfree(ht->entries, ht->entries_shmid)) {
-        _no_intercept_free(tmp);
-        return false;
-    }
-
-    int shmid_ht_realloc_entries = shmalloc(HT_ENTRIES_SHM_KEY_GEN, sizeof(hashTableEntry) * new_capacity);
-    if (shmid_ht_realloc_entries < 1) {
-        _no_intercept_free(tmp);
-        return false;
-    }
-    hashTableEntry* ht_realloc_entries = shmload(shmid_ht_realloc_entries);
-
-    ht->entries_shmid = shmid_ht_realloc_entries;
-    ht->entries = ht_realloc_entries;
-
-    for (int i = 0; i < new_capacity; i++) {
-        ht->entries[i] = clear_entry;
-    }
-
-    uint32_t new_hash_prime = HT_GET_PREV_HASH_PRIME(ht);
-    for (int i = 0; i < current_capacity; i++) {
-        hashTableEntry entry = tmp[i];
-        if (entry.key) {
-            int j = 0;
-            size_t new_index;
-            do {
-                new_index = DOUBLE_HASH(entry.key, new_hash_prime, j, new_capacity);
-                j++;
-            } while (ht->entries[new_index].key);
-
-            ht->entries[new_index] = entry;
-        }
-    }
-    _no_intercept_free(tmp);
-
-    ht->capacity_index -= 2;
-
-    return true;
-};
-
